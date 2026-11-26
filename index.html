@@ -6,6 +6,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Mehrgan Elevator AR</title>
 
+<!-- اصلاح اصلی: معرفی مسیر Three.js به مرورگر -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+
 <style>
 * { box-sizing: border-box; }
 
@@ -23,6 +33,7 @@ canvas {
   display: block;
   width: 100%;
   height: 100%;
+  touch-action: none;
 }
 
 #ui {
@@ -51,9 +62,7 @@ button, select {
   font-size: 13px;
 }
 
-button:active {
-  background: #087c57;
-}
+button:active { background: #087c57; }
 
 #start {
   position: absolute;
@@ -79,7 +88,7 @@ button:active {
 }
 
 #status {
-  background: rgba(0,0,0,.75);
+  background: rgba(0,0,0,.8);
   padding: 9px;
   border-radius: 8px;
   font-size: 11px;
@@ -99,7 +108,7 @@ button:active {
 }
 
 .panel {
-  background: rgba(0,0,0,.78);
+  background: rgba(0,0,0,.82);
   border: 1px solid #555;
   border-radius: 11px;
   padding: 7px;
@@ -147,6 +156,7 @@ button:active {
   text-align: center;
   font-size: 11px;
   text-shadow: 0 1px 3px black;
+  pointer-events: none;
 }
 
 .hidden { display: none !important; }
@@ -168,7 +178,7 @@ button:active {
   <button id="start">شروع نمایش AR</button>
 
   <div id="top" class="hidden">
-    <div id="status">آماده شروع</div>
+    <div id="status">در حال آماده‌سازی...</div>
 
     <select id="surfaceMode">
       <option value="floor">کف</option>
@@ -183,7 +193,7 @@ button:active {
   </div>
 
   <div id="note" class="hidden">
-    سطح را پیدا کن و «قرار دادن» را بزن.
+    سطح را پیدا کن و دکمه قرار دادن را بزن.
   </div>
 
   <div id="controls" class="hidden">
@@ -194,11 +204,9 @@ button:active {
         <span></span>
         <button id="forward">▲</button>
         <span></span>
-
         <button id="left">◀</button>
         <button id="place">قرار دادن</button>
         <button id="rightMove">▶</button>
-
         <span></span>
         <button id="backward">▼</button>
         <span></span>
@@ -237,29 +245,22 @@ button:active {
 
 <script type="module">
 
-import * as THREE from
-'https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-import { GLTFLoader } from
-'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/loaders/GLTFLoader.js';
+const $ = id => document.getElementById(id);
 
+const startButton = $('start');
+const statusBox = $('status');
+const controls = $('controls');
+const topBar = $('top');
+const note = $('note');
+const touchLayer = $('touchLayer');
+const surfaceMode = $('surfaceMode');
+const stepSelect = $('step');
 
-// عناصر صفحه
-const startButton = document.getElementById('start');
-const statusBox = document.getElementById('status');
-const controls = document.getElementById('controls');
-const topBar = document.getElementById('top');
-const note = document.getElementById('note');
-const touchLayer = document.getElementById('touchLayer');
-
-const surfaceMode = document.getElementById('surfaceMode');
-const stepSelect = document.getElementById('step');
-
-
-// متغیرهای اصلی
 let scene, camera, renderer;
-let modelRoot, modelContent;
-let reticle;
+let modelRoot, modelContent, reticle;
 let xrSession = null;
 let hitTestSource = null;
 let hitTestRequested = false;
@@ -273,10 +274,9 @@ let initialQuaternion = new THREE.Quaternion();
 let initialScale = 1;
 
 const worldUp = new THREE.Vector3(0,1,0);
-const loader = new GLTFLoader();
 
 
-// ایجاد صحنه
+// ساخت صحنه
 scene = new THREE.Scene();
 
 camera = new THREE.PerspectiveCamera(
@@ -287,78 +287,57 @@ camera = new THREE.PerspectiveCamera(
 );
 
 
-// ایجاد رندر
+// ساخت رندر
 renderer = new THREE.WebGLRenderer({
   alpha: true,
   antialias: true
 });
 
-renderer.setPixelRatio(
-  Math.min(window.devicePixelRatio, 2)
-);
-
-renderer.setSize(
-  window.innerWidth,
-  window.innerHeight
-);
-
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(window.innerWidth,window.innerHeight);
 renderer.xr.enabled = true;
 renderer.xr.setReferenceSpaceType('local');
 
 document.body.appendChild(renderer.domElement);
 
 
-// نورپردازی
-scene.add(
-  new THREE.HemisphereLight(
-    0xffffff,
-    0x777777,
-    2
-  )
-);
+// نور
+scene.add(new THREE.HemisphereLight(0xffffff,0x777777,2));
 
-const directionalLight = new THREE.DirectionalLight(
-  0xffffff,
-  2
-);
-
-directionalLight.position.set(2,5,3);
-scene.add(directionalLight);
+const light = new THREE.DirectionalLight(0xffffff,2);
+light.position.set(2,5,3);
+scene.add(light);
 
 
-// گروه مدل
+// مدل
 modelRoot = new THREE.Group();
 modelContent = new THREE.Group();
-
 modelRoot.add(modelContent);
 scene.add(modelRoot);
-
 modelRoot.visible = false;
 
 
-// بارگذاری آسانسور
+// بارگذاری فایل GLB
+const loader = new GLTFLoader();
+
 loader.load(
   './elevator.glb',
 
-  (gltf) => {
+  gltf => {
 
     const object = gltf.scene;
-
     modelContent.add(object);
 
     const box = new THREE.Box3().setFromObject(object);
     const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
 
     box.getSize(size);
-
-    // مرکز هندسی مدل
-    const center = new THREE.Vector3();
     box.getCenter(center);
 
     object.position.sub(center);
 
-    // فرض: محور بلندتر مدل، محور ارتفاع است.
-    // در صورت متفاوت بودن جهت مدل، باید محور اصلاح شود.
+    // فرض اولیه: بلندترین محور مدل، ارتفاع است.
     let axis = 'y';
 
     if (size.x > size.y && size.x > size.z) {
@@ -373,25 +352,24 @@ loader.load(
       object.rotation.x = -Math.PI / 2;
     }
 
-    // تنظیم کف مدل روی مبدأ
     const correctedBox = new THREE.Box3().setFromObject(object);
     object.position.y -= correctedBox.min.y;
 
-    statusBox.textContent = 'مدل آسانسور آماده است';
+    statusBox.textContent = 'مدل آسانسور بارگذاری شد';
 
   },
 
   undefined,
 
-  (error) => {
+  error => {
     console.error(error);
-    statusBox.textContent = 'خطا در بارگذاری مدل';
+    statusBox.textContent = 'خطا در بارگذاری elevator.glb';
   }
 );
 
 
-// نشانگر سطح
-const ring = new THREE.Mesh(
+// نشانگر
+reticle = new THREE.Mesh(
   new THREE.RingGeometry(0.08,0.11,32),
   new THREE.MeshBasicMaterial({
     color: 0x00ff88,
@@ -399,15 +377,13 @@ const ring = new THREE.Mesh(
   })
 );
 
-reticle = ring;
 reticle.matrixAutoUpdate = false;
 reticle.visible = false;
-
 scene.add(reticle);
 
 
-// محاسبه جهت قرارگیری مدل
-function getPlacement(matrix, mode) {
+// محاسبه جهت قرارگیری
+function getPlacement(matrix,mode) {
 
   const position = new THREE.Vector3();
   const quaternion = new THREE.Quaternion();
@@ -419,9 +395,7 @@ function getPlacement(matrix, mode) {
 
   if (mode === 'wall') {
 
-    normal.set(0,1,0)
-      .applyQuaternion(quaternion);
-
+    normal.set(0,1,0).applyQuaternion(quaternion);
     normal.y = 0;
 
     if (normal.lengthSq() < 0.001) {
@@ -443,7 +417,6 @@ function getPlacement(matrix, mode) {
 
   }
 
-  // دستگاه مختصات با محور Y قائم
   const right = new THREE.Vector3()
     .crossVectors(worldUp,normal)
     .normalize();
@@ -453,20 +426,16 @@ function getPlacement(matrix, mode) {
     .normalize();
 
   const basis = new THREE.Matrix4();
-
   basis.makeBasis(right,worldUp,normal);
 
   const resultQuaternion = new THREE.Quaternion()
     .setFromRotationMatrix(basis);
 
-  return {
-    position,
-    quaternion: resultQuaternion
-  };
+  return { position, quaternion: resultQuaternion };
 }
 
 
-// قرار دادن مدل روی سطح
+// قرار دادن مدل
 function placeModel(matrix) {
 
   if (!modelContent.children.length) {
@@ -478,7 +447,6 @@ function placeModel(matrix) {
 
   modelRoot.position.copy(result.position);
   modelRoot.quaternion.copy(result.quaternion);
-
   modelRoot.visible = true;
 
   placed = true;
@@ -489,14 +457,12 @@ function placeModel(matrix) {
   initialScale = modelRoot.scale.x;
 
   reticle.visible = false;
-
   statusBox.textContent = 'مدل قرار گرفت';
 
 }
 
 
 // شروع AR
-// درخواست مستقیم در رویداد لمس، بدون isSessionSupported و await قبلی
 startButton.addEventListener('click', async () => {
 
   startButton.disabled = true;
@@ -505,19 +471,16 @@ startButton.addEventListener('click', async () => {
   try {
 
     if (!navigator.xr) {
-      throw new Error('WebXR در این مرورگر در دسترس نیست');
+      throw new Error('WebXR در مرورگر در دسترس نیست');
     }
 
     xrSession = await navigator.xr.requestSession(
       'immersive-ar',
       {
         requiredFeatures: ['hit-test'],
-        optionalFeatures: [
-          'dom-overlay',
-          'local-floor'
-        ],
+        optionalFeatures: ['dom-overlay','local-floor'],
         domOverlay: {
-          root: document.getElementById('ui')
+          root: $('ui')
         }
       }
     );
@@ -529,12 +492,12 @@ startButton.addEventListener('click', async () => {
     topBar.classList.remove('hidden');
     note.classList.remove('hidden');
 
-    statusBox.textContent = 'دوربین را به سمت سطح بگیر';
-
     hitTestSource = null;
     hitTestRequested = false;
 
-    xrSession.addEventListener('end', () => {
+    statusBox.textContent = 'دوربین را به سمت سطح بگیر';
+
+    xrSession.addEventListener('end',() => {
 
       startButton.classList.remove('hidden');
       startButton.disabled = false;
@@ -572,7 +535,7 @@ startButton.addEventListener('click', async () => {
 });
 
 
-// پردازش Hit Test
+// پردازش تشخیص سطح
 renderer.setAnimationLoop((time,frame) => {
 
   if (frame) {
@@ -584,32 +547,22 @@ renderer.setAnimationLoop((time,frame) => {
       hitTestRequested = true;
 
       session.requestReferenceSpace('viewer')
-        .then((referenceSpace) => {
-
-          return session.requestHitTestSource({
-            space: referenceSpace
-          });
-
-        })
-        .then((source) => {
-
+        .then(space => session.requestHitTestSource({
+          space
+        }))
+        .then(source => {
           hitTestSource = source;
-
         })
-        .catch((error) => {
-
+        .catch(error => {
           console.error(error);
           statusBox.textContent = 'خطا در تشخیص سطح';
-
         });
 
     }
 
-
     if (hitTestSource) {
 
       const referenceSpace = renderer.xr.getReferenceSpace();
-
       const results = frame.getHitTestResults(hitTestSource);
 
       let selectedResult = null;
@@ -617,7 +570,6 @@ renderer.setAnimationLoop((time,frame) => {
       for (const result of results) {
 
         const pose = result.getPose(referenceSpace);
-
         if (!pose) continue;
 
         const matrix = new THREE.Matrix4()
@@ -651,7 +603,6 @@ renderer.setAnimationLoop((time,frame) => {
 
       }
 
-
       if (selectedResult) {
 
         const pose = selectedResult.getPose(referenceSpace);
@@ -660,14 +611,10 @@ renderer.setAnimationLoop((time,frame) => {
           .fromArray(pose.transform.matrix);
 
         reticle.matrix.copy(currentHitMatrix);
-
         reticle.visible = !placed;
 
         if (!placed) {
-          statusBox.textContent =
-            surfaceMode.value === 'floor'
-            ? 'کف شناسایی شد؛ قرار دادن را بزن'
-            : 'دیوار شناسایی شد؛ قرار دادن را بزن';
+          statusBox.textContent = 'سطح پیدا شد؛ قرار دادن را بزن';
         }
 
       } else {
@@ -689,27 +636,25 @@ renderer.setAnimationLoop((time,frame) => {
 });
 
 
-// قرار دادن مدل
-document.getElementById('place').onclick = () => {
+// قرار دادن
+$('place').onclick = () => {
 
   if (currentHitMatrix && !placed) {
     placeModel(currentHitMatrix);
-  } else if (placed) {
-    statusBox.textContent = 'مدل قبلاً قرار گرفته است';
-  } else {
+  } else if (!placed) {
     statusBox.textContent = 'ابتدا سطح را پیدا کن';
   }
 
 };
 
 
-// اندازه گام
+// گام حرکت
 function getStep() {
   return Number(stepSelect.value);
 }
 
 
-// حرکت مدل در راستای محورهای محلی
+// حرکت محلی
 function moveLocal(x,y,z) {
 
   if (!placed || locked) return;
@@ -717,78 +662,45 @@ function moveLocal(x,y,z) {
   const movement = new THREE.Vector3(x,y,z)
     .applyQuaternion(modelRoot.quaternion);
 
-  modelRoot.position.addScaledVector(
-    movement,
-    getStep()
-  );
+  modelRoot.position.addScaledVector(movement,getStep());
 
 }
 
+$('forward').onclick = () => moveLocal(0,0,-1);
+$('backward').onclick = () => moveLocal(0,0,1);
+$('left').onclick = () => moveLocal(-1,0,0);
+$('rightMove').onclick = () => moveLocal(1,0,0);
 
-// حرکت چهارجهته
-document.getElementById('forward').onclick =
-  () => moveLocal(0,0,-1);
-
-document.getElementById('backward').onclick =
-  () => moveLocal(0,0,1);
-
-document.getElementById('left').onclick =
-  () => moveLocal(-1,0,0);
-
-document.getElementById('rightMove').onclick =
-  () => moveLocal(1,0,0);
+$('up').onclick = () => moveLocal(0,1,0);
+$('down').onclick = () => moveLocal(0,-1,0);
 
 
-// ارتفاع
-document.getElementById('up').onclick =
-  () => moveLocal(0,1,0);
-
-document.getElementById('down').onclick =
-  () => moveLocal(0,-1,0);
-
-
-// چرخش حول محور قائم مدل
-document.getElementById('rotateLeft').onclick = () => {
-
-  if (!placed || locked) return;
-
-  modelRoot.rotateY(
-    THREE.MathUtils.degToRad(-5)
-  );
-
+// چرخش
+$('rotateLeft').onclick = () => {
+  if (placed && !locked) {
+    modelRoot.rotateY(THREE.MathUtils.degToRad(-5));
+  }
 };
 
-document.getElementById('rotateRight').onclick = () => {
-
-  if (!placed || locked) return;
-
-  modelRoot.rotateY(
-    THREE.MathUtils.degToRad(5)
-  );
-
+$('rotateRight').onclick = () => {
+  if (placed && !locked) {
+    modelRoot.rotateY(THREE.MathUtils.degToRad(5));
+  }
 };
 
 
 // مقیاس
-document.getElementById('bigger').onclick = () => {
-
-  if (!placed || locked) return;
-
-  modelRoot.scale.multiplyScalar(1.05);
-
+$('bigger').onclick = () => {
+  if (placed && !locked) modelRoot.scale.multiplyScalar(1.05);
 };
 
-document.getElementById('smaller').onclick = () => {
-
-  if (!placed || locked) return;
-
-  modelRoot.scale.multiplyScalar(0.95);
-
+$('smaller').onclick = () => {
+  if (placed && !locked) modelRoot.scale.multiplyScalar(0.95);
 };
 
 
 // قفل
-document.getElementById('lock').onclick = (event) => {
+$('lock').onclick = event => {
 
   if (!placed) return;
 
@@ -804,7 +716,7 @@ document.getElementById('lock').onclick = (event) => {
 
 
 // بازنشانی
-document.getElementById('reset').onclick = () => {
+$('reset').onclick = () => {
 
   if (!placed) return;
 
@@ -814,29 +726,24 @@ document.getElementById('reset').onclick = () => {
   modelRoot.quaternion.copy(initialQuaternion);
   modelRoot.scale.setScalar(initialScale);
 
-  document.getElementById('lock').textContent =
-    'قفل موقعیت';
-
+  $('lock').textContent = 'قفل موقعیت';
   statusBox.textContent = 'مدل بازنشانی شد';
 
 };
 
 
 // تغییر سطح
-surfaceMode.addEventListener('change', () => {
+surfaceMode.addEventListener('change',() => {
 
   placed = false;
   locked = false;
 
   modelRoot.visible = false;
   reticle.visible = false;
-
   currentHitMatrix = null;
 
-  document.getElementById('lock').textContent =
-    'قفل موقعیت';
-
-  statusBox.textContent = 'در حال تشخیص سطح جدید...';
+  $('lock').textContent = 'قفل موقعیت';
+  statusBox.textContent = 'در حال جستجوی سطح جدید...';
 
 });
 
@@ -846,12 +753,11 @@ let dragging = false;
 let lastX = 0;
 let lastY = 0;
 
-touchLayer.addEventListener('pointerdown', (event) => {
+touchLayer.addEventListener('pointerdown',event => {
 
   if (!placed || locked) return;
 
   dragging = true;
-
   lastX = event.clientX;
   lastY = event.clientY;
 
@@ -859,7 +765,7 @@ touchLayer.addEventListener('pointerdown', (event) => {
 
 });
 
-touchLayer.addEventListener('pointermove', (event) => {
+touchLayer.addEventListener('pointermove',event => {
 
   if (!dragging || !placed || locked) return;
 
@@ -869,13 +775,7 @@ touchLayer.addEventListener('pointermove', (event) => {
   lastX = event.clientX;
   lastY = event.clientY;
 
-  const xrCamera = renderer.xr.isPresenting
-    ? renderer.xr.getCamera(camera)
-    : camera;
-
-  xrCamera.getWorldDirection(
-    new THREE.Vector3()
-  );
+  const xrCamera = renderer.xr.getCamera(camera);
 
   const right = new THREE.Vector3()
     .setFromMatrixColumn(xrCamera.matrixWorld,0);
@@ -883,62 +783,55 @@ touchLayer.addEventListener('pointermove', (event) => {
   if (surfaceMode.value === 'floor') {
 
     right.y = 0;
-
-    if (right.lengthSq() > 0) right.normalize();
+    right.normalize();
 
     const forward = new THREE.Vector3()
       .setFromMatrixColumn(xrCamera.matrixWorld,2);
 
     forward.y = 0;
+    forward.normalize();
 
-    if (forward.lengthSq() > 0) forward.normalize();
-
-    modelRoot.position.addScaledVector(
-      right,
-      dx * 0.002
-    );
-
-    modelRoot.position.addScaledVector(
-      forward,
-      dy * 0.002
-    );
+    modelRoot.position.addScaledVector(right,dx * 0.002);
+    modelRoot.position.addScaledVector(forward,dy * 0.002);
 
   } else {
 
-    modelRoot.position.addScaledVector(
-      right,
-      dx * 0.002
-    );
-
+    modelRoot.position.addScaledVector(right,dx * 0.002);
     modelRoot.position.y -= dy * 0.002;
 
   }
 
 });
 
-touchLayer.addEventListener('pointerup', () => {
+touchLayer.addEventListener('pointerup',() => {
   dragging = false;
 });
 
-touchLayer.addEventListener('pointercancel', () => {
+touchLayer.addEventListener('pointercancel',() => {
   dragging = false;
 });
 
 
-// اندازه صفحه
-window.addEventListener('resize', () => {
+// تغییر اندازه پنجره
+window.addEventListener('resize',() => {
 
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
 
-  renderer.setSize(
-    window.innerWidth,
-    window.innerHeight
-  );
+  renderer.setSize(window.innerWidth,window.innerHeight);
 
 });
 
-</script>
 
+// نمایش خطاهای پیش‌بینی‌نشده
+window.addEventListener('error',event => {
+  console.error(event.error || event.message);
+});
+
+window.addEventListener('unhandledrejection',event => {
+  console.error(event.reason);
+});
+
+</script>
 </body>
 </html>
