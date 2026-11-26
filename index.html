@@ -6,7 +6,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Mehrgan Elevator AR</title>
 
-<!-- اصلاح اصلی: معرفی مسیر Three.js به مرورگر -->
 <script type="importmap">
 {
   "imports": {
@@ -67,13 +66,27 @@ button:active { background: #087c57; }
 #start {
   position: absolute;
   z-index: 5;
-  top: 45%;
+  top: 43%;
   left: 50%;
   transform: translate(-50%,-50%);
   background: #087c57;
   font-size: 18px;
   padding: 16px 25px;
 }
+
+#chooseModel {
+  position: absolute;
+  z-index: 5;
+  top: 55%;
+  left: 50%;
+  transform: translate(-50%,-50%);
+  background: #174b78;
+  font-size: 15px;
+  padding: 13px 20px;
+  white-space: nowrap;
+}
+
+#fileInput { display: none; }
 
 #top {
   position: absolute;
@@ -176,6 +189,8 @@ button:active { background: #087c57; }
   <div id="touchLayer"></div>
 
   <button id="start">شروع نمایش AR</button>
+  <button id="chooseModel">انتخاب فایل مدل GLB</button>
+  <input id="fileInput" type="file" accept=".glb,model/gltf-binary">
 
   <div id="top" class="hidden">
     <div id="status">در حال آماده‌سازی...</div>
@@ -251,6 +266,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const $ = id => document.getElementById(id);
 
 const startButton = $('start');
+const chooseButton = $('chooseModel');
+const fileInput = $('fileInput');
 const statusBox = $('status');
 const controls = $('controls');
 const topBar = $('top');
@@ -261,22 +278,24 @@ const stepSelect = $('step');
 
 let scene, camera, renderer;
 let modelRoot, modelContent, reticle;
+
 let xrSession = null;
 let hitTestSource = null;
 let hitTestRequested = false;
 
 let placed = false;
 let locked = false;
+let modelReady = false;
 let currentHitMatrix = null;
 
 let initialPosition = new THREE.Vector3();
 let initialQuaternion = new THREE.Quaternion();
 let initialScale = 1;
 
+let currentObjectURL = null;
+
 const worldUp = new THREE.Vector3(0,1,0);
 
-
-// ساخت صحنه
 scene = new THREE.Scene();
 
 camera = new THREE.PerspectiveCamera(
@@ -286,8 +305,6 @@ camera = new THREE.PerspectiveCamera(
   100
 );
 
-
-// ساخت رندر
 renderer = new THREE.WebGLRenderer({
   alpha: true,
   antialias: true
@@ -300,75 +317,198 @@ renderer.xr.setReferenceSpaceType('local');
 
 document.body.appendChild(renderer.domElement);
 
-
-// نور
 scene.add(new THREE.HemisphereLight(0xffffff,0x777777,2));
 
 const light = new THREE.DirectionalLight(0xffffff,2);
 light.position.set(2,5,3);
 scene.add(light);
 
-
-// مدل
 modelRoot = new THREE.Group();
 modelContent = new THREE.Group();
+
 modelRoot.add(modelContent);
 scene.add(modelRoot);
 modelRoot.visible = false;
 
-
-// بارگذاری فایل GLB
 const loader = new GLTFLoader();
 
-loader.load(
-  './elevator.glb',
 
-  gltf => {
-
-    const object = gltf.scene;
-    modelContent.add(object);
-
-    const box = new THREE.Box3().setFromObject(object);
-    const size = new THREE.Vector3();
-    const center = new THREE.Vector3();
-
-    box.getSize(size);
-    box.getCenter(center);
-
-    object.position.sub(center);
-
-    // فرض اولیه: بلندترین محور مدل، ارتفاع است.
-    let axis = 'y';
-
-    if (size.x > size.y && size.x > size.z) {
-      axis = 'x';
-    } else if (size.z > size.x && size.z > size.y) {
-      axis = 'z';
+// آزادسازی منابع مدل قبلی
+function disposeObject(object) {
+  object.traverse(child => {
+    if (child.geometry) {
+      child.geometry.dispose();
     }
 
-    if (axis === 'x') {
-      object.rotation.z = Math.PI / 2;
-    } else if (axis === 'z') {
-      object.rotation.x = -Math.PI / 2;
+    if (child.material) {
+      const materials = Array.isArray(child.material)
+        ? child.material
+        : [child.material];
+
+      materials.forEach(material => {
+        for (const key in material) {
+          const value = material[key];
+
+          if (value && value.isTexture) {
+            value.dispose();
+          }
+        }
+
+        material.dispose();
+      });
     }
+  });
+}
 
-    const correctedBox = new THREE.Box3().setFromObject(object);
-    object.position.y -= correctedBox.min.y;
 
-    statusBox.textContent = 'مدل آسانسور بارگذاری شد';
+// آماده‌سازی مدل و اصلاح اولیه محور
+function prepareModel(object) {
 
-  },
+  const box = new THREE.Box3().setFromObject(object);
+  const size = new THREE.Vector3();
+  const center = new THREE.Vector3();
 
-  undefined,
+  box.getSize(size);
+  box.getCenter(center);
 
-  error => {
-    console.error(error);
-    statusBox.textContent = 'خطا در بارگذاری elevator.glb';
+  object.position.sub(center);
+
+  // فرض اولیه: بلندترین محور مدل، ارتفاع است.
+  let axis = 'y';
+
+  if (size.x > size.y && size.x > size.z) {
+    axis = 'x';
+  } else if (size.z > size.x && size.z > size.y) {
+    axis = 'z';
   }
-);
+
+  if (axis === 'x') {
+    object.rotation.z = Math.PI / 2;
+  } else if (axis === 'z') {
+    object.rotation.x = -Math.PI / 2;
+  }
+
+  const correctedBox = new THREE.Box3().setFromObject(object);
+  object.position.y -= correctedBox.min.y;
+}
 
 
-// نشانگر
+// بارگذاری مدل از آدرس یا فایل انتخاب‌شده
+function loadModel(source, label, isLocal = false) {
+
+  statusBox.textContent = 'در حال بارگذاری مدل...';
+
+  modelReady = false;
+  placed = false;
+  locked = false;
+  modelRoot.visible = false;
+  reticle.visible = false;
+  currentHitMatrix = null;
+
+  while (modelContent.children.length) {
+    const oldObject = modelContent.children[0];
+
+    modelContent.remove(oldObject);
+    disposeObject(oldObject);
+  }
+
+  modelRoot.position.set(0,0,0);
+  modelRoot.quaternion.identity();
+  modelRoot.scale.setScalar(1);
+
+  $('lock').textContent = 'قفل موقعیت';
+
+  loader.load(
+    source,
+
+    gltf => {
+
+      const object = gltf.scene;
+
+      prepareModel(object);
+      modelContent.add(object);
+
+      modelReady = true;
+
+      statusBox.textContent = 'مدل آماده است: ' + label;
+
+      if (isLocal && currentObjectURL) {
+        URL.revokeObjectURL(currentObjectURL);
+        currentObjectURL = null;
+      }
+
+    },
+
+    progress => {
+
+      if (progress.total > 0) {
+        const percent = Math.round(
+          progress.loaded / progress.total * 100
+        );
+
+        statusBox.textContent = 'بارگذاری مدل: ' + percent + '%';
+      }
+
+    },
+
+    error => {
+
+      console.error('MODEL ERROR:',error);
+
+      statusBox.textContent = 'خطا در بارگذاری مدل';
+
+      if (isLocal && currentObjectURL) {
+        URL.revokeObjectURL(currentObjectURL);
+        currentObjectURL = null;
+      }
+
+      alert('بارگذاری مدل ناموفق بود. فایل GLB را بررسی کن.');
+
+    }
+  );
+}
+
+
+// مدل پیش‌فرض
+loadModel('./elevator.glb','elevator.glb');
+
+
+// انتخاب فایل از حافظه گوشی
+chooseButton.addEventListener('click', () => {
+  fileInput.click();
+});
+
+fileInput.addEventListener('change', event => {
+
+  const file = event.target.files[0];
+
+  if (!file) return;
+
+  if (!file.name.toLowerCase().endsWith('.glb')) {
+    alert('لطفاً یک فایل با پسوند GLB انتخاب کن.');
+    fileInput.value = '';
+    return;
+  }
+
+  if (currentObjectURL) {
+    URL.revokeObjectURL(currentObjectURL);
+    currentObjectURL = null;
+  }
+
+  currentObjectURL = URL.createObjectURL(file);
+
+  loadModel(
+    currentObjectURL,
+    file.name,
+    true
+  );
+
+  fileInput.value = '';
+
+});
+
+
+// نشانگر تشخیص سطح
 reticle = new THREE.Mesh(
   new THREE.RingGeometry(0.08,0.11,32),
   new THREE.MeshBasicMaterial({
@@ -382,7 +522,7 @@ reticle.visible = false;
 scene.add(reticle);
 
 
-// محاسبه جهت قرارگیری
+// محاسبه جهت قرارگیری مدل
 function getPlacement(matrix,mode) {
 
   const position = new THREE.Vector3();
@@ -431,14 +571,17 @@ function getPlacement(matrix,mode) {
   const resultQuaternion = new THREE.Quaternion()
     .setFromRotationMatrix(basis);
 
-  return { position, quaternion: resultQuaternion };
+  return {
+    position,
+    quaternion: resultQuaternion
+  };
 }
 
 
 // قرار دادن مدل
 function placeModel(matrix) {
 
-  if (!modelContent.children.length) {
+  if (!modelReady) {
     statusBox.textContent = 'مدل هنوز بارگذاری نشده است';
     return;
   }
@@ -457,13 +600,18 @@ function placeModel(matrix) {
   initialScale = modelRoot.scale.x;
 
   reticle.visible = false;
-  statusBox.textContent = 'مدل قرار گرفت';
 
+  statusBox.textContent = 'مدل قرار گرفت';
 }
 
 
 // شروع AR
 startButton.addEventListener('click', async () => {
+
+  if (!modelReady) {
+    alert('ابتدا منتظر بارگذاری مدل بمان.');
+    return;
+  }
 
   startButton.disabled = true;
   startButton.textContent = 'در حال اتصال...';
@@ -488,6 +636,8 @@ startButton.addEventListener('click', async () => {
     await renderer.xr.setSession(xrSession);
 
     startButton.classList.add('hidden');
+    chooseButton.classList.add('hidden');
+
     controls.classList.remove('hidden');
     topBar.classList.remove('hidden');
     note.classList.remove('hidden');
@@ -502,6 +652,8 @@ startButton.addEventListener('click', async () => {
       startButton.classList.remove('hidden');
       startButton.disabled = false;
       startButton.textContent = 'شروع نمایش AR';
+
+      chooseButton.classList.remove('hidden');
 
       controls.classList.add('hidden');
       topBar.classList.add('hidden');
@@ -675,31 +827,43 @@ $('up').onclick = () => moveLocal(0,1,0);
 $('down').onclick = () => moveLocal(0,-1,0);
 
 
-// چرخش
+// چرخش حول محور قائم
 $('rotateLeft').onclick = () => {
+
   if (placed && !locked) {
     modelRoot.rotateY(THREE.MathUtils.degToRad(-5));
   }
+
 };
 
 $('rotateRight').onclick = () => {
+
   if (placed && !locked) {
     modelRoot.rotateY(THREE.MathUtils.degToRad(5));
   }
+
 };
 
 
 // مقیاس
 $('bigger').onclick = () => {
-  if (placed && !locked) modelRoot.scale.multiplyScalar(1.05);
+
+  if (placed && !locked) {
+    modelRoot.scale.multiplyScalar(1.05);
+  }
+
 };
 
 $('smaller').onclick = () => {
-  if (placed && !locked) modelRoot.scale.multiplyScalar(0.95);
+
+  if (placed && !locked) {
+    modelRoot.scale.multiplyScalar(0.95);
+  }
+
 };
 
 
-// قفل
+// قفل موقعیت
 $('lock').onclick = event => {
 
   if (!placed) return;
@@ -743,6 +907,7 @@ surfaceMode.addEventListener('change',() => {
   currentHitMatrix = null;
 
   $('lock').textContent = 'قفل موقعیت';
+
   statusBox.textContent = 'در حال جستجوی سطح جدید...';
 
 });
@@ -758,6 +923,7 @@ touchLayer.addEventListener('pointerdown',event => {
   if (!placed || locked) return;
 
   dragging = true;
+
   lastX = event.clientX;
   lastY = event.clientY;
 
