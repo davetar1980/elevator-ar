@@ -46,21 +46,21 @@ html, body {
   top: 0;
   right: 0;
   left: 0;
-  padding: 12px;
-  background: rgba(20,20,20,.82);
+  padding: 8px;
+  background: rgba(20,20,20,.65);
   text-align: center;
   pointer-events: auto;
-  border-bottom: 1px solid rgba(255,255,255,.15);
+  border-bottom: 1px solid rgba(255,255,255,.12);
 }
 
 #brand {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: bold;
 }
 
 #status {
-  margin-top: 6px;
-  font-size: 11px;
+  margin-top: 4px;
+  font-size: 10px;
   color: #ddd;
 }
 
@@ -76,6 +76,16 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 9px;
+}
+
+.ar-active #bottomBar {
+  display: none;
+}
+
+.ar-active #topBar {
+  background: rgba(20,20,20,.25);
+  border: none;
+  pointer-events: none;
 }
 
 button, select {
@@ -120,62 +130,88 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+#instructions {
+  font-size: 10px;
+  line-height: 1.8;
+  color: #bbb;
+  text-align: center;
+}
+
+/* پنل شفاف تنظیمات */
+
 #arPanel {
   position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 105px;
-  max-height: 62vh;
+  top: 75px;
+  right: 8px;
+  left: auto;
+  bottom: 12px;
+
+  width: min(310px, calc(100vw - 16px));
+  max-height: 55vh;
+
   overflow-y: auto;
-  background: rgba(22,22,22,.94);
-  border: 1px solid #555;
-  border-radius: 14px;
-  padding: 11px;
+  overscroll-behavior: contain;
+
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 5px;
+
   pointer-events: auto;
-  backdrop-filter: blur(8px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 #panelHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  gap: 6px;
+  margin-bottom: 7px;
 }
 
 #panelTitle {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: bold;
+  color: white;
+  text-shadow: 0 1px 4px black;
 }
 
 #hidePanel {
-  background: #713b3b;
-  min-height: 35px;
-  padding: 0 12px;
+  background: rgba(120,45,45,.75);
+  min-height: 32px;
+  padding: 0 9px;
+  font-size: 11px;
 }
 
 .sectionTitle {
-  font-size: 12px;
-  color: #69c6ff;
-  margin: 12px 0 7px;
+  font-size: 11px;
+  color: #8bd5ff;
+  margin: 9px 0 5px;
   font-weight: bold;
+  text-shadow: 0 1px 4px black;
 }
 
 .controlGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  gap: 5px;
 }
 
 .controlGrid button {
-  min-height: 42px;
-  background: #343b45;
+  min-height: 36px;
+  background: rgba(35,48,62,.70);
+  border: 1px solid rgba(255,255,255,.20);
+  font-size: 11px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
 }
 
 .axisLabel {
   font-size: 10px;
-  color: #bbb;
+  color: white;
   text-align: center;
   margin-bottom: 4px;
+  text-shadow: 0 1px 4px black;
 }
 
 .axisBox {
@@ -185,868 +221,39 @@ button:disabled {
 .pair {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 5px;
+  gap: 4px;
 }
 
 .pair button {
-  background: #3a4653;
+  background: rgba(40,55,72,.72);
 }
 
 #scaleControls button {
-  background: #175c50;
+  background: rgba(20,100,80,.72);
 }
 
 #settings {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .setting {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 .setting label {
   font-size: 10px;
-  color: #ccc;
+  color: white;
+  text-shadow: 0 1px 4px black;
 }
 
 select {
   width: 100%;
-  height: 38px;
+  height: 34px;
   border-radius: 7px;
-  background: #333;
-  color: white;
-  border: 1px solid #666;
-  padding: 0 7px;
-  font-size: 12px;
-}
-
-#bottomActions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
-  margin-top: 10px;
-}
-
-#lockButton {
-  background: #8a5c16;
-}
-
-#resetButton {
-  background: #713b3b;
-}
-
-#showPanel {
-  position: absolute;
-  bottom: 115px;
-  right: 12px;
-  width: auto;
-  min-height: 43px;
-  padding: 0 15px;
-  background: #087c57;
-  pointer-events: auto;
-  box-shadow: 0 3px 12px #0008;
-}
-
-.hidden {
-  display: none !important;
-}
-
-#instructions {
-  font-size: 10px;
-  line-height: 1.8;
-  color: #bbb;
-  text-align: center;
-}
-</style>
-
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
-  }
-}
-</script>
-</head>
-
-<body>
-
-<div id="scene"></div>
-
-<div id="overlayRoot">
-
-  <div id="topBar">
-    <div id="brand">مهرگان آسانبر اعتماد</div>
-    <div id="status">در حال آماده‌سازی موتور سه‌بعدی...</div>
-  </div>
-
-  <div id="bottomBar">
-
-    <button id="startAR" disabled>
-      شروع نمایش AR
-    </button>
-
-    <button id="chooseModel">
-      انتخاب فایل GLB از گوشی
-    </button>
-
-    <input
-      id="fileInput"
-      type="file"
-      accept=".glb,model/gltf-binary">
-
-    <div id="modelName">elevator.glb</div>
-
-    <div id="instructions">
-      پس از ورود به AR، گوشی را به سمت کف بگیر و برای قرار دادن مدل روی سطح، یک بار بیرون از پنل لمس کن.
-    </div>
-
-  </div>
-
-  <div id="arPanel" class="hidden">
-
-    <div id="panelHeader">
-      <div id="panelTitle">کنترل دقیق مدل آسانسور</div>
-      <button id="hidePanel">مخفی‌کردن پنل</button>
-    </div>
-
-    <div class="sectionTitle">جابه‌جایی در سه محور</div>
-
-    <div class="controlGrid">
-
-      <div class="axisBox">
-        <div class="axisLabel">محور X</div>
-        <div class="pair">
-          <button data-kind="move" data-axis="x" data-dir="-1">X−</button>
-          <button data-kind="move" data-axis="x" data-dir="1">X+</button>
-        </div>
-      </div>
-
-      <div class="axisBox">
-        <div class="axisLabel">محور Y / ارتفاع</div>
-        <div class="pair">
-          <button data-kind="move" data-axis="y" data-dir="-1">Y−</button>
-          <button data-kind="move" data-axis="y" data-dir="1">Y+</button>
-        </div>
-      </div>
-
-      <div class="axisBox">
-        <div class="axisLabel">محور Z</div>
-        <div class="pair">
-          <button data-kind="move" data-axis="z" data-dir="-1">Z−</button>
-          <button data-kind="move" data-axis="z" data-dir="1">Z+</button>
-        </div>
-      </div>
-
-    </div>
-
-    <div class="sectionTitle">چرخش حول سه محور</div>
-
-    <div class="controlGrid">
-
-      <div class="axisBox">
-        <div class="axisLabel">چرخش X</div>
-        <div class="pair">
-          <button data-kind="rotate" data-axis="x" data-dir="-1">↶ X</button>
-          <button data-kind="rotate" data-axis="x" data-dir="1">X ↷</button>
-        </div>
-      </div>
-
-      <div class="axisBox">
-        <div class="axisLabel">چرخش Y</div>
-        <div class="pair">
-          <button data-kind="rotate" data-axis="y" data-dir="-1">↶ Y</button>
-          <button data-kind="rotate" data-axis="y" data-dir="1">Y ↷</button>
-        </div>
-      </div>
-
-      <div class="axisBox">
-        <div class="axisLabel">چرخش Z</div>
-        <div class="pair">
-          <button data-kind="rotate" data-axis="z" data-dir="-1">↶ Z</button>
-          <button data-kind="rotate" data-axis="z" data-dir="1">Z ↷</button>
-        </div>
-      </div>
-
-    </div>
-
-    <div class="sectionTitle">تنظیم اندازه مدل</div>
-
-    <div class="controlGrid" id="scaleControls">
-      <button data-kind="scale" data-dir="-1">− کوچک‌تر</button>
-      <button data-kind="scale" data-dir="1">+ بزرگ‌تر</button>
-      <button id="resetScale">اندازه اولیه</button>
-    </div>
-
-    <div id="settings">
-
-      <div class="setting">
-        <label for="moveStep">گام جابه‌جایی</label>
-        <select id="moveStep">
-          <option value="1">۱ میلی‌متر</option>
-          <option value="5" selected>۵ میلی‌متر</option>
-          <option value="10">۱۰ میلی‌متر</option>
-          <option value="50">۵۰ میلی‌متر</option>
-          <option value="100">۱۰۰ میلی‌متر</option>
-        </select>
-      </div>
-
-      <div class="setting">
-        <label for="rotateStep">گام چرخش</label>
-        <select id="rotateStep">
-          <option value="1">۱ درجه</option>
-          <option value="5" selected>۵ درجه</option>
-          <option value="15">۱۵ درجه</option>
-          <option value="45">۴۵ درجه</option>
-        </select>
-      </div>
-
-      <div class="setting">
-        <label for="scaleStep">گام تغییر اندازه</label>
-        <select id="scaleStep">
-          <option value="0.01">۱ درصد</option>
-          <option value="0.05" selected>۵ درصد</option>
-          <option value="0.10">۱۰ درصد</option>
-        </select>
-      </div>
-
-    </div>
-
-    <div id="bottomActions">
-      <button id="lockButton">قفل مدل</button>
-      <button id="resetButton">بازنشانی موقعیت</button>
-    </div>
-
-  </div>
-
-  <button id="showPanel" class="hidden">
-    نمایش کنترل‌ها
-  </button>
-
-</div>
-
-<script type="module">
-
-import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-
-const statusBox = document.getElementById("status");
-const startButton = document.getElementById("startAR");
-const chooseButton = document.getElementById("chooseModel");
-const fileInput = document.getElementById("fileInput");
-const modelName = document.getElementById("modelName");
-
-const overlayRoot = document.getElementById("overlayRoot");
-const arPanel = document.getElementById("arPanel");
-const hidePanelButton = document.getElementById("hidePanel");
-const showPanelButton = document.getElementById("showPanel");
-
-const moveStep = document.getElementById("moveStep");
-const rotateStep = document.getElementById("rotateStep");
-const scaleStep = document.getElementById("scaleStep");
-
-const lockButton = document.getElementById("lockButton");
-const resetButton = document.getElementById("resetButton");
-const resetScaleButton = document.getElementById("resetScale");
-
-function setStatus(message) {
-  statusBox.textContent = message;
-}
-
-// --------------------------------------------------
-// صحنه سه‌بعدی
-// --------------------------------------------------
-
-const scene = new THREE.Scene();
-
-const camera = new THREE.PerspectiveCamera(
-  70,
-  window.innerWidth / window.innerHeight,
-  0.01,
-  100
-);
-
-camera.position.set(0, 1.5, 3);
-camera.lookAt(0, 1, 0);
-
-const renderer = new THREE.WebGLRenderer({
-  alpha: true,
-  antialias: true
-});
-
-renderer.setPixelRatio(
-  Math.min(window.devicePixelRatio, 2)
-);
-
-renderer.setSize(
-  window.innerWidth,
-  window.innerHeight
-);
-
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.xr.enabled = true;
-renderer.xr.setReferenceSpaceType("local");
-renderer.setClearColor(0x000000, 0);
-
-document.getElementById("scene").appendChild(
-  renderer.domElement
-);
-
-// نورپردازی
-scene.add(
-  new THREE.HemisphereLight(
-    0xffffff,
-    0x777777,
-    2
-  )
-);
-
-const mainLight = new THREE.DirectionalLight(
-  0xffffff,
-  2
-);
-
-mainLight.position.set(3, 6, 4);
-scene.add(mainLight);
-
-// ریشه مدل
-const modelRoot = new THREE.Group();
-modelRoot.visible = false;
-scene.add(modelRoot);
-
-// نشانگر سطح
-const reticleGeometry = new THREE.RingGeometry(
-  0.10,
-  0.14,
-  32
-);
-
-reticleGeometry.rotateX(-Math.PI / 2);
-
-const reticleMaterial = new THREE.MeshBasicMaterial({
-  color: 0x00ff99,
-  side: THREE.DoubleSide
-});
-
-const reticle = new THREE.Mesh(
-  reticleGeometry,
-  reticleMaterial
-);
-
-reticle.matrixAutoUpdate = false;
-reticle.visible = false;
-scene.add(reticle);
-
-// --------------------------------------------------
-// بارگذاری مدل GLB
-// --------------------------------------------------
-
-const loader = new GLTFLoader();
-
-let modelLoaded = false;
-let placed = false;
-let locked = false;
-
-let localModelURL = null;
-let loadToken = 0;
-
-let basePosition = new THREE.Vector3();
-let baseQuaternion = new THREE.Quaternion();
-let baseScale = new THREE.Vector3(1, 1, 1);
-
-function loadModel(url, name) {
-
-  const token = ++loadToken;
-
-  modelLoaded = false;
-  startButton.disabled = true;
-
-  setStatus("در حال بارگذاری مدل...");
-
-  loader.load(
-    url,
-
-    function(gltf) {
-
-      if (token !== loadToken) return;
-
-      while (modelRoot.children.length > 0) {
-        modelRoot.remove(modelRoot.children[0]);
-      }
-
-      modelRoot.add(gltf.scene);
-
-      modelRoot.visible = false;
-
-      placed = false;
-      locked = false;
-
-      modelLoaded = true;
-      startButton.disabled = false;
-
-      basePosition.set(0, 0, 0);
-      baseQuaternion.identity();
-      baseScale.set(1, 1, 1);
-
-      lockButton.textContent = "قفل مدل";
-
-      modelName.textContent = name;
-
-      setStatus("مدل با موفقیت بارگذاری شد.");
-
-    },
-
-    undefined,
-
-    function(error) {
-
-      console.error("MODEL LOAD ERROR:", error);
-
-      if (token !== loadToken) return;
-
-      modelLoaded = false;
-      startButton.disabled = true;
-
-      setStatus("خطا در بارگذاری GLB.");
-
-    }
-  );
-
-}
-
-// مدل پیش‌فرض
-loadModel("./elevator.glb", "elevator.glb");
-
-// --------------------------------------------------
-// انتخاب فایل از حافظه گوشی
-// --------------------------------------------------
-
-chooseButton.addEventListener("click", function() {
-  fileInput.click();
-});
-
-fileInput.addEventListener("change", function(event) {
-
-  const file = event.target.files[0];
-
-  if (!file) return;
-
-  if (!file.name.toLowerCase().endsWith(".glb")) {
-    alert("فقط فایل GLB قابل انتخاب است.");
-    fileInput.value = "";
-    return;
-  }
-
-  const newURL = URL.createObjectURL(file);
-  const previousURL = localModelURL;
-
-  const tokenBefore = loadToken;
-
-  loadModel(newURL, file.name);
-
-  localModelURL = newURL;
-
-  // پاک‌سازی فایل قبلی پس از بارگذاری موفق فایل جدید
-  const checkToken = loadToken;
-
-  const checkLoaded = function() {
-
-    if (loadToken !== checkToken) return;
-
-    if (modelLoaded) {
-
-      if (previousURL) {
-        URL.revokeObjectURL(previousURL);
-      }
-
-      model.removeEventListener("load-check", checkLoaded);
-
-    }
-
-  };
-
-  // وضعیت فایل جدید از طریق خطای بارگذاری نیز مدیریت می‌شود.
-  setTimeout(() => {
-    if (!modelLoaded && loadToken === checkToken) {
-      // فایل قبلی همچنان در حافظه نگه داشته می‌شود.
-    }
-  }, 100);
-
-  fileInput.value = "";
-
-});
-
-// --------------------------------------------------
-// شروع WebXR
-// --------------------------------------------------
-
-let currentSession = null;
-let hitTestSource = null;
-let viewerSpace = null;
-
-async function startAR() {
-
-  if (!modelLoaded) {
-    setStatus("ابتدا منتظر بارگذاری مدل بمان.");
-    return;
-  }
-
-  if (!navigator.xr) {
-    setStatus("مرورگر از WebXR پشتیبانی نمی‌کند.");
-    return;
-  }
-
-  try {
-
-    setStatus("در حال درخواست دسترسی AR...");
-
-    const sessionPromise = navigator.xr.requestSession(
-      "immersive-ar",
-      {
-        requiredFeatures: [
-          "hit-test",
-          "dom-overlay"
-        ],
-
-        optionalFeatures: [
-          "local-floor"
-        ],
-
-        domOverlay: {
-          root: overlayRoot
-        }
-      }
-    );
-
-    const session = await sessionPromise;
-
-    currentSession = session;
-
-    await renderer.xr.setSession(session);
-
-    viewerSpace = await session.requestReferenceSpace(
-      "viewer"
-    );
-
-    hitTestSource = await session.requestHitTestSource({
-      space: viewerSpace
-    });
-
-    session.addEventListener("select", placeModel);
-
-    session.addEventListener("end", function() {
-
-      if (hitTestSource) {
-        hitTestSource.cancel();
-        hitTestSource = null;
-      }
-
-      currentSession = null;
-      viewerSpace = null;
-
-      reticle.visible = false;
-
-      arPanel.classList.add("hidden");
-      showPanelButton.classList.add("hidden");
-
-      startButton.disabled = !modelLoaded;
-
-      setStatus("از حالت AR خارج شدی.");
-
-    });
-
-    arPanel.classList.remove("hidden");
-    showPanelButton.classList.add("hidden");
-
-    startButton.disabled = true;
-
-    setStatus("AR فعال شد؛ سطح کف را اسکن کن.");
-
-  } catch(error) {
-
-    console.error("AR ERROR:", error);
-
-    setStatus(
-      "شروع AR ناموفق بود: " + error.message
-    );
-
-    alert(
-      "خطا در شروع AR\n\n" +
-      error.name + "\n" +
-      error.message
-    );
-
-  }
-
-}
-
-startButton.addEventListener("click", startAR);
-
-// --------------------------------------------------
-// تشخیص سطح و نمایش نشانگر
-// --------------------------------------------------
-
-function renderFrame(time, frame) {
-
-  if (frame && currentSession && hitTestSource) {
-
-    const referenceSpace = renderer.xr.getReferenceSpace();
-
-    const results = frame.getHitTestResults(
-      hitTestSource
-    );
-
-    if (results.length > 0) {
-
-      const pose = results[0].getPose(
-        referenceSpace
-      );
-
-      if (pose) {
-
-        reticle.matrix.fromArray(
-          pose.transform.matrix
-        );
-
-        reticle.matrix.decompose(
-          reticle.position,
-          reticle.quaternion,
-          reticle.scale
-        );
-
-        reticle.visible = !placed;
-
-      }
-
-    } else {
-
-      reticle.visible = false;
-
-    }
-
-  }
-
-  renderer.render(scene, camera);
-
-}
-
-renderer.setAnimationLoop(renderFrame);
-
-// --------------------------------------------------
-// قرار دادن مدل روی سطح واقعی
-// --------------------------------------------------
-
-function placeModel() {
-
-  if (!modelLoaded || !reticle.visible) {
-    return;
-  }
-
-  modelRoot.position.copy(reticle.position);
-  modelRoot.quaternion.copy(reticle.quaternion);
-  modelRoot.scale.set(1, 1, 1);
-
-  modelRoot.visible = true;
-
-  placed = true;
-
-  basePosition.copy(modelRoot.position);
-  baseQuaternion.copy(modelRoot.quaternion);
-  baseScale.copy(modelRoot.scale);
-
-  reticle.visible = false;
-
-  setStatus("مدل روی سطح قرار گرفت.");
-
-}
-
-// --------------------------------------------------
-// کنترل جابه‌جایی و چرخش
-// --------------------------------------------------
-
-function applyControl(button) {
-
-  if (!placed) {
-    setStatus("ابتدا مدل را روی سطح قرار بده.");
-    return;
-  }
-
-  if (locked) {
-    setStatus("مدل قفل است؛ ابتدا قفل را باز کن.");
-    return;
-  }
-
-  const kind = button.dataset.kind;
-  const axis = button.dataset.axis;
-  const direction = Number(button.dataset.dir);
-
-  if (kind === "move") {
-
-    const step = Number(moveStep.value) / 1000;
-
-    modelRoot.position[axis] += direction * step;
-
-  }
-
-  if (kind === "rotate") {
-
-    const degrees = Number(rotateStep.value);
-    const radians = THREE.MathUtils.degToRad(degrees);
-
-    const axisVector = new THREE.Vector3(
-      axis === "x" ? 1 : 0,
-      axis === "y" ? 1 : 0,
-      axis === "z" ? 1 : 0
-    );
-
-    modelRoot.rotateOnWorldAxis(
-      axisVector,
-      direction * radians
-    );
-
-  }
-
-  if (kind === "scale") {
-
-    const step = Number(scaleStep.value);
-
-    const factor = direction > 0
-      ? 1 + step
-      : 1 - step;
-
-    const nextScale = modelRoot.scale.x * factor;
-
-    if (nextScale >= 0.01 && nextScale <= 100) {
-      modelRoot.scale.multiplyScalar(factor);
-    }
-
-  }
-
-}
-
-// کنترل دکمه‌ها
-arPanel.addEventListener("click", function(event) {
-
-  const button = event.target.closest(
-    "button[data-kind]"
-  );
-
-  if (!button) return;
-
-  applyControl(button);
-
-});
-
-// --------------------------------------------------
-// قفل و بازنشانی
-// --------------------------------------------------
-
-lockButton.addEventListener("click", function() {
-
-  if (!placed) {
-    setStatus("ابتدا مدل را قرار بده.");
-    return;
-  }
-
-  locked = !locked;
-
-  lockButton.textContent = locked
-    ? "بازکردن قفل مدل"
-    : "قفل مدل";
-
-  setStatus(
-    locked ? "مدل قفل شد." : "قفل مدل باز شد."
-  );
-
-});
-
-resetButton.addEventListener("click", function() {
-
-  if (!placed) return;
-
-  if (locked) {
-    setStatus("ابتدا قفل مدل را باز کن.");
-    return;
-  }
-
-  modelRoot.position.copy(basePosition);
-  modelRoot.quaternion.copy(baseQuaternion);
-  modelRoot.scale.copy(baseScale);
-
-  setStatus("موقعیت اولیه مدل بازگردانده شد.");
-
-});
-
-resetScaleButton.addEventListener("click", function() {
-
-  if (!placed || locked) return;
-
-  modelRoot.scale.copy(baseScale);
-
-  setStatus("اندازه اولیه مدل بازگردانده شد.");
-
-});
-
-// --------------------------------------------------
-// مخفی و نمایش پنل
-// --------------------------------------------------
-
-hidePanelButton.addEventListener("click", function() {
-
-  arPanel.classList.add("hidden");
-  showPanelButton.classList.remove("hidden");
-
-});
-
-showPanelButton.addEventListener("click", function() {
-
-  arPanel.classList.remove("hidden");
-  showPanelButton.classList.add("hidden");
-
-});
-
-// جلوگیری از تبدیل لمس دکمه‌های پنل به فرمان انتخاب WebXR
-overlayRoot.addEventListener(
-  "beforexrselect",
-  function(event) {
-
-    if (
-      event.target.closest("button") ||
-      event.target.closest("select") ||
-      event.target.closest("input")
-    ) {
-      event.preventDefault();
-    }
-
-  }
-);
-
-// --------------------------------------------------
-// اندازه صفحه
-// --------------------------------------------------
-
-window.addEventListener("resize", function() {
-
-  camera.aspect =
-    window.innerWidth / window.innerHeight;
-
-  camera.updateProjectionMatrix();
-
-  renderer.setSize(
-    window.innerWidth,
-    window.innerHeight
-  );
-
-});
-
-setStatus("موتور سه‌بعدی آماده بارگذاری مدل است.");
-
-</script>
-
-</body>
-</html>
+  background: rgba(35,35,35,.75);
+  color
