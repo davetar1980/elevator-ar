@@ -7,10 +7,6 @@
 
 <title>Mehrgan Elevator AR</title>
 
-<script type="module"
-src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js">
-</script>
-
 <style>
 * {
   box-sizing: border-box;
@@ -26,76 +22,90 @@ html, body {
   font-family: Tahoma, Arial, sans-serif;
 }
 
-#app {
+#scene {
   position: fixed;
   inset: 0;
-  display: flex;
-  flex-direction: column;
+  z-index: 1;
 }
 
-header {
-  background: #202020;
-  padding: 14px;
-  text-align: center;
-  font-size: 17px;
-  font-weight: bold;
-  border-bottom: 1px solid #444;
-}
-
-#viewer {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  background: #252525;
-}
-
-model-viewer {
+#scene canvas {
+  display: block;
   width: 100%;
   height: 100%;
-  background: #252525;
-  --poster-color: #252525;
+}
+
+#overlayRoot {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+#topBar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  padding: 12px;
+  background: rgba(20,20,20,.82);
+  text-align: center;
+  pointer-events: auto;
+  border-bottom: 1px solid rgba(255,255,255,.15);
+}
+
+#brand {
+  font-size: 16px;
+  font-weight: bold;
 }
 
 #status {
-  min-height: 40px;
-  padding: 10px;
-  text-align: center;
-  font-size: 12px;
+  margin-top: 6px;
+  font-size: 11px;
   color: #ddd;
-  background: #202020;
 }
 
-#buttons {
+#bottomBar {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  left: 0;
   padding: 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  background: rgba(20,20,20,.92);
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  background: #171717;
+  gap: 9px;
+}
+
+button, select {
+  font-family: inherit;
+  touch-action: manipulation;
 }
 
 button {
-  width: 100%;
-  min-height: 49px;
-  border: none;
-  border-radius: 10px;
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: bold;
+  min-height: 43px;
+  border: 0;
+  border-radius: 9px;
   color: white;
+  font-size: 13px;
+  font-weight: bold;
+  background: #343434;
   cursor: pointer;
-  touch-action: manipulation;
+}
+
+button:disabled {
+  opacity: .4;
 }
 
 #startAR {
   background: #087c57;
+  min-height: 48px;
+  font-size: 15px;
 }
 
 #chooseModel {
   background: #174b78;
-}
-
-button:disabled {
-  opacity: .45;
 }
 
 #fileInput {
@@ -103,65 +113,186 @@ button:disabled {
 }
 
 #modelName {
+  font-size: 10px;
+  color: #bbb;
   text-align: center;
-  font-size: 11px;
-  color: #aaa;
   direction: ltr;
   overflow-wrap: anywhere;
 }
 
-#arHint {
+#arPanel {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 105px;
+  max-height: 62vh;
+  overflow-y: auto;
+  background: rgba(22,22,22,.94);
+  border: 1px solid #555;
+  border-radius: 14px;
+  padding: 11px;
+  pointer-events: auto;
+  backdrop-filter: blur(8px);
+}
+
+#panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+#panelTitle {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+#hidePanel {
+  background: #713b3b;
+  min-height: 35px;
+  padding: 0 12px;
+}
+
+.sectionTitle {
+  font-size: 12px;
+  color: #69c6ff;
+  margin: 12px 0 7px;
+  font-weight: bold;
+}
+
+.controlGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.controlGrid button {
+  min-height: 42px;
+  background: #343b45;
+}
+
+.axisLabel {
   font-size: 10px;
-  color: #aaa;
+  color: #bbb;
   text-align: center;
-  padding-bottom: 5px;
+  margin-bottom: 4px;
+}
+
+.axisBox {
+  min-width: 0;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.pair button {
+  background: #3a4653;
+}
+
+#scaleControls button {
+  background: #175c50;
+}
+
+#settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.setting {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.setting label {
+  font-size: 10px;
+  color: #ccc;
+}
+
+select {
+  width: 100%;
+  height: 38px;
+  border-radius: 7px;
+  background: #333;
+  color: white;
+  border: 1px solid #666;
+  padding: 0 7px;
+  font-size: 12px;
+}
+
+#bottomActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+#lockButton {
+  background: #8a5c16;
+}
+
+#resetButton {
+  background: #713b3b;
+}
+
+#showPanel {
+  position: absolute;
+  bottom: 115px;
+  right: 12px;
+  width: auto;
+  min-height: 43px;
+  padding: 0 15px;
+  background: #087c57;
+  pointer-events: auto;
+  box-shadow: 0 3px 12px #0008;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#instructions {
+  font-size: 10px;
+  line-height: 1.8;
+  color: #bbb;
+  text-align: center;
 }
 </style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
 </head>
 
 <body>
 
-<div id="app">
+<div id="scene"></div>
 
-  <header>
-    مهرگان آسانبر اعتماد
-    <div style="font-size:11px;font-weight:normal;margin-top:5px">
-      سیستم نمایش سه‌بعدی آسانسور در محیط واقعی
-    </div>
-  </header>
+<div id="overlayRoot">
 
-  <div id="viewer">
-
-    <model-viewer
-      id="elevatorModel"
-      src="./elevator.glb"
-      ar
-      ar-modes="webxr"
-      ar-placement="floor"
-      camera-controls
-      touch-action="pan-y"
-      shadow-intensity="1"
-      exposure="1"
-      environment-image="neutral"
-      interaction-prompt="auto"
-      alt="مدل سه بعدی آسانسور">
-
-    </model-viewer>
-
+  <div id="topBar">
+    <div id="brand">مهرگان آسانبر اعتماد</div>
+    <div id="status">در حال آماده‌سازی موتور سه‌بعدی...</div>
   </div>
 
-  <div id="status">
-    در حال آماده‌سازی برنامه...
-  </div>
-
-  <div id="buttons">
+  <div id="bottomBar">
 
     <button id="startAR" disabled>
       شروع نمایش AR
     </button>
 
     <button id="chooseModel">
-      انتخاب فایل مدل GLB از گوشی
+      انتخاب فایل GLB از گوشی
     </button>
 
     <input
@@ -169,199 +300,752 @@ button:disabled {
       type="file"
       accept=".glb,model/gltf-binary">
 
-    <div id="modelName">
-      elevator.glb
-    </div>
+    <div id="modelName">elevator.glb</div>
 
-    <div id="arHint">
-      برای استفاده از AR، گوشی باید از WebXR پشتیبانی کند.
+    <div id="instructions">
+      پس از ورود به AR، گوشی را به سمت کف بگیر و برای قرار دادن مدل روی سطح، یک بار بیرون از پنل لمس کن.
     </div>
 
   </div>
 
+  <div id="arPanel" class="hidden">
+
+    <div id="panelHeader">
+      <div id="panelTitle">کنترل دقیق مدل آسانسور</div>
+      <button id="hidePanel">مخفی‌کردن پنل</button>
+    </div>
+
+    <div class="sectionTitle">جابه‌جایی در سه محور</div>
+
+    <div class="controlGrid">
+
+      <div class="axisBox">
+        <div class="axisLabel">محور X</div>
+        <div class="pair">
+          <button data-kind="move" data-axis="x" data-dir="-1">X−</button>
+          <button data-kind="move" data-axis="x" data-dir="1">X+</button>
+        </div>
+      </div>
+
+      <div class="axisBox">
+        <div class="axisLabel">محور Y / ارتفاع</div>
+        <div class="pair">
+          <button data-kind="move" data-axis="y" data-dir="-1">Y−</button>
+          <button data-kind="move" data-axis="y" data-dir="1">Y+</button>
+        </div>
+      </div>
+
+      <div class="axisBox">
+        <div class="axisLabel">محور Z</div>
+        <div class="pair">
+          <button data-kind="move" data-axis="z" data-dir="-1">Z−</button>
+          <button data-kind="move" data-axis="z" data-dir="1">Z+</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="sectionTitle">چرخش حول سه محور</div>
+
+    <div class="controlGrid">
+
+      <div class="axisBox">
+        <div class="axisLabel">چرخش X</div>
+        <div class="pair">
+          <button data-kind="rotate" data-axis="x" data-dir="-1">↶ X</button>
+          <button data-kind="rotate" data-axis="x" data-dir="1">X ↷</button>
+        </div>
+      </div>
+
+      <div class="axisBox">
+        <div class="axisLabel">چرخش Y</div>
+        <div class="pair">
+          <button data-kind="rotate" data-axis="y" data-dir="-1">↶ Y</button>
+          <button data-kind="rotate" data-axis="y" data-dir="1">Y ↷</button>
+        </div>
+      </div>
+
+      <div class="axisBox">
+        <div class="axisLabel">چرخش Z</div>
+        <div class="pair">
+          <button data-kind="rotate" data-axis="z" data-dir="-1">↶ Z</button>
+          <button data-kind="rotate" data-axis="z" data-dir="1">Z ↷</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="sectionTitle">تنظیم اندازه مدل</div>
+
+    <div class="controlGrid" id="scaleControls">
+      <button data-kind="scale" data-dir="-1">− کوچک‌تر</button>
+      <button data-kind="scale" data-dir="1">+ بزرگ‌تر</button>
+      <button id="resetScale">اندازه اولیه</button>
+    </div>
+
+    <div id="settings">
+
+      <div class="setting">
+        <label for="moveStep">گام جابه‌جایی</label>
+        <select id="moveStep">
+          <option value="1">۱ میلی‌متر</option>
+          <option value="5" selected>۵ میلی‌متر</option>
+          <option value="10">۱۰ میلی‌متر</option>
+          <option value="50">۵۰ میلی‌متر</option>
+          <option value="100">۱۰۰ میلی‌متر</option>
+        </select>
+      </div>
+
+      <div class="setting">
+        <label for="rotateStep">گام چرخش</label>
+        <select id="rotateStep">
+          <option value="1">۱ درجه</option>
+          <option value="5" selected>۵ درجه</option>
+          <option value="15">۱۵ درجه</option>
+          <option value="45">۴۵ درجه</option>
+        </select>
+      </div>
+
+      <div class="setting">
+        <label for="scaleStep">گام تغییر اندازه</label>
+        <select id="scaleStep">
+          <option value="0.01">۱ درصد</option>
+          <option value="0.05" selected>۵ درصد</option>
+          <option value="0.10">۱۰ درصد</option>
+        </select>
+      </div>
+
+    </div>
+
+    <div id="bottomActions">
+      <button id="lockButton">قفل مدل</button>
+      <button id="resetButton">بازنشانی موقعیت</button>
+    </div>
+
+  </div>
+
+  <button id="showPanel" class="hidden">
+    نمایش کنترل‌ها
+  </button>
+
 </div>
 
-<script>
-(function() {
+<script type="module">
 
-  "use strict";
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-  const model = document.getElementById("elevatorModel");
-  const startButton = document.getElementById("startAR");
-  const chooseButton = document.getElementById("chooseModel");
-  const fileInput = document.getElementById("fileInput");
-  const statusBox = document.getElementById("status");
-  const modelName = document.getElementById("modelName");
+const statusBox = document.getElementById("status");
+const startButton = document.getElementById("startAR");
+const chooseButton = document.getElementById("chooseModel");
+const fileInput = document.getElementById("fileInput");
+const modelName = document.getElementById("modelName");
 
-  let localModelURL = null;
-  let modelLoaded = false;
+const overlayRoot = document.getElementById("overlayRoot");
+const arPanel = document.getElementById("arPanel");
+const hidePanelButton = document.getElementById("hidePanel");
+const showPanelButton = document.getElementById("showPanel");
 
-  function setStatus(message) {
-    statusBox.textContent = message;
+const moveStep = document.getElementById("moveStep");
+const rotateStep = document.getElementById("rotateStep");
+const scaleStep = document.getElementById("scaleStep");
+
+const lockButton = document.getElementById("lockButton");
+const resetButton = document.getElementById("resetButton");
+const resetScaleButton = document.getElementById("resetScale");
+
+function setStatus(message) {
+  statusBox.textContent = message;
+}
+
+// --------------------------------------------------
+// صحنه سه‌بعدی
+// --------------------------------------------------
+
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(
+  70,
+  window.innerWidth / window.innerHeight,
+  0.01,
+  100
+);
+
+camera.position.set(0, 1.5, 3);
+camera.lookAt(0, 1, 0);
+
+const renderer = new THREE.WebGLRenderer({
+  alpha: true,
+  antialias: true
+});
+
+renderer.setPixelRatio(
+  Math.min(window.devicePixelRatio, 2)
+);
+
+renderer.setSize(
+  window.innerWidth,
+  window.innerHeight
+);
+
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.xr.enabled = true;
+renderer.xr.setReferenceSpaceType("local");
+renderer.setClearColor(0x000000, 0);
+
+document.getElementById("scene").appendChild(
+  renderer.domElement
+);
+
+// نورپردازی
+scene.add(
+  new THREE.HemisphereLight(
+    0xffffff,
+    0x777777,
+    2
+  )
+);
+
+const mainLight = new THREE.DirectionalLight(
+  0xffffff,
+  2
+);
+
+mainLight.position.set(3, 6, 4);
+scene.add(mainLight);
+
+// ریشه مدل
+const modelRoot = new THREE.Group();
+modelRoot.visible = false;
+scene.add(modelRoot);
+
+// نشانگر سطح
+const reticleGeometry = new THREE.RingGeometry(
+  0.10,
+  0.14,
+  32
+);
+
+reticleGeometry.rotateX(-Math.PI / 2);
+
+const reticleMaterial = new THREE.MeshBasicMaterial({
+  color: 0x00ff99,
+  side: THREE.DoubleSide
+});
+
+const reticle = new THREE.Mesh(
+  reticleGeometry,
+  reticleMaterial
+);
+
+reticle.matrixAutoUpdate = false;
+reticle.visible = false;
+scene.add(reticle);
+
+// --------------------------------------------------
+// بارگذاری مدل GLB
+// --------------------------------------------------
+
+const loader = new GLTFLoader();
+
+let modelLoaded = false;
+let placed = false;
+let locked = false;
+
+let localModelURL = null;
+let loadToken = 0;
+
+let basePosition = new THREE.Vector3();
+let baseQuaternion = new THREE.Quaternion();
+let baseScale = new THREE.Vector3(1, 1, 1);
+
+function loadModel(url, name) {
+
+  const token = ++loadToken;
+
+  modelLoaded = false;
+  startButton.disabled = true;
+
+  setStatus("در حال بارگذاری مدل...");
+
+  loader.load(
+    url,
+
+    function(gltf) {
+
+      if (token !== loadToken) return;
+
+      while (modelRoot.children.length > 0) {
+        modelRoot.remove(modelRoot.children[0]);
+      }
+
+      modelRoot.add(gltf.scene);
+
+      modelRoot.visible = false;
+
+      placed = false;
+      locked = false;
+
+      modelLoaded = true;
+      startButton.disabled = false;
+
+      basePosition.set(0, 0, 0);
+      baseQuaternion.identity();
+      baseScale.set(1, 1, 1);
+
+      lockButton.textContent = "قفل مدل";
+
+      modelName.textContent = name;
+
+      setStatus("مدل با موفقیت بارگذاری شد.");
+
+    },
+
+    undefined,
+
+    function(error) {
+
+      console.error("MODEL LOAD ERROR:", error);
+
+      if (token !== loadToken) return;
+
+      modelLoaded = false;
+      startButton.disabled = true;
+
+      setStatus("خطا در بارگذاری GLB.");
+
+    }
+  );
+
+}
+
+// مدل پیش‌فرض
+loadModel("./elevator.glb", "elevator.glb");
+
+// --------------------------------------------------
+// انتخاب فایل از حافظه گوشی
+// --------------------------------------------------
+
+chooseButton.addEventListener("click", function() {
+  fileInput.click();
+});
+
+fileInput.addEventListener("change", function(event) {
+
+  const file = event.target.files[0];
+
+  if (!file) return;
+
+  if (!file.name.toLowerCase().endsWith(".glb")) {
+    alert("فقط فایل GLB قابل انتخاب است.");
+    fileInput.value = "";
+    return;
   }
 
-  // بررسی بارگذاری مدل
-  model.addEventListener("load", function() {
+  const newURL = URL.createObjectURL(file);
+  const previousURL = localModelURL;
 
-    modelLoaded = true;
-    startButton.disabled = false;
+  const tokenBefore = loadToken;
 
-    setStatus("مدل با موفقیت بارگذاری شد.");
+  loadModel(newURL, file.name);
 
-  });
+  localModelURL = newURL;
 
-  // خطای بارگذاری مدل
-  model.addEventListener("error", function() {
+  // پاک‌سازی فایل قبلی پس از بارگذاری موفق فایل جدید
+  const checkToken = loadToken;
 
-    modelLoaded = false;
-    startButton.disabled = true;
+  const checkLoaded = function() {
 
-    setStatus("خطا در بارگذاری مدل. فایل GLB را بررسی کن.");
+    if (loadToken !== checkToken) return;
 
-  });
+    if (modelLoaded) {
 
-  // آماده شدن قابلیت AR
-  model.addEventListener("ar-status", function(event) {
+      if (previousURL) {
+        URL.revokeObjectURL(previousURL);
+      }
 
-    const state = event.detail.status;
+      model.removeEventListener("load-check", checkLoaded);
 
-    if (state === "session-started") {
-      setStatus("نمایش AR شروع شد.");
     }
 
-    if (state === "object-placed") {
-      setStatus("مدل در محیط واقعی قرار گرفت.");
-    }
+  };
 
-    if (state === "failed") {
-      setStatus("شروع AR ناموفق بود.");
+  // وضعیت فایل جدید از طریق خطای بارگذاری نیز مدیریت می‌شود.
+  setTimeout(() => {
+    if (!modelLoaded && loadToken === checkToken) {
+      // فایل قبلی همچنان در حافظه نگه داشته می‌شود.
     }
+  }, 100);
 
-    if (state === "not-presenting") {
+  fileInput.value = "";
+
+});
+
+// --------------------------------------------------
+// شروع WebXR
+// --------------------------------------------------
+
+let currentSession = null;
+let hitTestSource = null;
+let viewerSpace = null;
+
+async function startAR() {
+
+  if (!modelLoaded) {
+    setStatus("ابتدا منتظر بارگذاری مدل بمان.");
+    return;
+  }
+
+  if (!navigator.xr) {
+    setStatus("مرورگر از WebXR پشتیبانی نمی‌کند.");
+    return;
+  }
+
+  try {
+
+    setStatus("در حال درخواست دسترسی AR...");
+
+    const sessionPromise = navigator.xr.requestSession(
+      "immersive-ar",
+      {
+        requiredFeatures: [
+          "hit-test",
+          "dom-overlay"
+        ],
+
+        optionalFeatures: [
+          "local-floor"
+        ],
+
+        domOverlay: {
+          root: overlayRoot
+        }
+      }
+    );
+
+    const session = await sessionPromise;
+
+    currentSession = session;
+
+    await renderer.xr.setSession(session);
+
+    viewerSpace = await session.requestReferenceSpace(
+      "viewer"
+    );
+
+    hitTestSource = await session.requestHitTestSource({
+      space: viewerSpace
+    });
+
+    session.addEventListener("select", placeModel);
+
+    session.addEventListener("end", function() {
+
+      if (hitTestSource) {
+        hitTestSource.cancel();
+        hitTestSource = null;
+      }
+
+      currentSession = null;
+      viewerSpace = null;
+
+      reticle.visible = false;
+
+      arPanel.classList.add("hidden");
+      showPanelButton.classList.add("hidden");
+
+      startButton.disabled = !modelLoaded;
+
       setStatus("از حالت AR خارج شدی.");
-    }
 
-  });
+    });
 
-  // انتخاب فایل از حافظه گوشی
-  chooseButton.addEventListener("click", function() {
+    arPanel.classList.remove("hidden");
+    showPanelButton.classList.add("hidden");
 
-    fileInput.click();
-
-  });
-
-  // بارگذاری فایل انتخاب‌شده
-  fileInput.addEventListener("change", function(event) {
-
-    const file = event.target.files[0];
-
-    if (!file) return;
-
-    if (!file.name.toLowerCase().endsWith(".glb")) {
-
-      alert("فقط فایل GLB قابل انتخاب است.");
-
-      fileInput.value = "";
-      return;
-
-    }
-
-    setStatus("در حال بارگذاری مدل جدید...");
-
-    modelLoaded = false;
     startButton.disabled = true;
 
-    const newURL = URL.createObjectURL(file);
+    setStatus("AR فعال شد؛ سطح کف را اسکن کن.");
 
-    const previousURL = localModelURL;
+  } catch(error) {
 
-    localModelURL = newURL;
+    console.error("AR ERROR:", error);
 
-    model.src = newURL;
+    setStatus(
+      "شروع AR ناموفق بود: " + error.message
+    );
 
-    modelName.textContent = file.name;
+    alert(
+      "خطا در شروع AR\n\n" +
+      error.name + "\n" +
+      error.message
+    );
 
-    if (previousURL) {
-      URL.revokeObjectURL(previousURL);
-    }
+  }
 
-    fileInput.value = "";
+}
 
-  });
+startButton.addEventListener("click", startAR);
 
-  // شروع AR
-  startButton.addEventListener("click", async function() {
+// --------------------------------------------------
+// تشخیص سطح و نمایش نشانگر
+// --------------------------------------------------
 
-    if (!modelLoaded) {
+function renderFrame(time, frame) {
 
-      setStatus("ابتدا منتظر بارگذاری مدل بمان.");
+  if (frame && currentSession && hitTestSource) {
 
-      return;
+    const referenceSpace = renderer.xr.getReferenceSpace();
 
-    }
+    const results = frame.getHitTestResults(
+      hitTestSource
+    );
 
-    try {
+    if (results.length > 0) {
 
-      setStatus("در حال شروع AR...");
+      const pose = results[0].getPose(
+        referenceSpace
+      );
 
-      if (!model.canActivateAR) {
+      if (pose) {
 
-        throw new Error(
-          "قابلیت WebXR در حال حاضر آماده نیست."
+        reticle.matrix.fromArray(
+          pose.transform.matrix
         );
+
+        reticle.matrix.decompose(
+          reticle.position,
+          reticle.quaternion,
+          reticle.scale
+        );
+
+        reticle.visible = !placed;
 
       }
 
-      // درخواست شروع AR باید مستقیماً از کلیک کاربر باشد.
-      await model.activateAR();
+    } else {
 
-    } catch (error) {
-
-      console.error("AR ERROR:", error);
-
-      setStatus(
-        "خطای AR: " + error.message
-      );
-
-      alert(
-        "شروع AR ناموفق بود.\n" +
-        error.name + "\n" +
-        error.message
-      );
+      reticle.visible = false;
 
     }
 
-  });
+  }
 
-  // آماده شدن کتابخانه
-  if (customElements.get("model-viewer")) {
+  renderer.render(scene, camera);
 
-    setStatus("در حال بارگذاری مدل...");
+}
 
-  } else {
+renderer.setAnimationLoop(renderFrame);
 
-    customElements.whenDefined("model-viewer")
-      .then(function() {
-        setStatus("کتابخانه آماده شد؛ در حال بارگذاری مدل...");
-      })
-      .catch(function(error) {
-        setStatus("خطا در آماده‌سازی نمایشگر سه‌بعدی.");
-        console.error(error);
-      });
+// --------------------------------------------------
+// قرار دادن مدل روی سطح واقعی
+// --------------------------------------------------
+
+function placeModel() {
+
+  if (!modelLoaded || !reticle.visible) {
+    return;
+  }
+
+  modelRoot.position.copy(reticle.position);
+  modelRoot.quaternion.copy(reticle.quaternion);
+  modelRoot.scale.set(1, 1, 1);
+
+  modelRoot.visible = true;
+
+  placed = true;
+
+  basePosition.copy(modelRoot.position);
+  baseQuaternion.copy(modelRoot.quaternion);
+  baseScale.copy(modelRoot.scale);
+
+  reticle.visible = false;
+
+  setStatus("مدل روی سطح قرار گرفت.");
+
+}
+
+// --------------------------------------------------
+// کنترل جابه‌جایی و چرخش
+// --------------------------------------------------
+
+function applyControl(button) {
+
+  if (!placed) {
+    setStatus("ابتدا مدل را روی سطح قرار بده.");
+    return;
+  }
+
+  if (locked) {
+    setStatus("مدل قفل است؛ ابتدا قفل را باز کن.");
+    return;
+  }
+
+  const kind = button.dataset.kind;
+  const axis = button.dataset.axis;
+  const direction = Number(button.dataset.dir);
+
+  if (kind === "move") {
+
+    const step = Number(moveStep.value) / 1000;
+
+    modelRoot.position[axis] += direction * step;
 
   }
 
-  // بررسی وضعیت بارگذاری
-  if (model.loaded) {
+  if (kind === "rotate") {
 
-    modelLoaded = true;
-    startButton.disabled = false;
+    const degrees = Number(rotateStep.value);
+    const radians = THREE.MathUtils.degToRad(degrees);
 
-    setStatus("مدل آماده است.");
+    const axisVector = new THREE.Vector3(
+      axis === "x" ? 1 : 0,
+      axis === "y" ? 1 : 0,
+      axis === "z" ? 1 : 0
+    );
+
+    modelRoot.rotateOnWorldAxis(
+      axisVector,
+      direction * radians
+    );
 
   }
 
-})();
+  if (kind === "scale") {
+
+    const step = Number(scaleStep.value);
+
+    const factor = direction > 0
+      ? 1 + step
+      : 1 - step;
+
+    const nextScale = modelRoot.scale.x * factor;
+
+    if (nextScale >= 0.01 && nextScale <= 100) {
+      modelRoot.scale.multiplyScalar(factor);
+    }
+
+  }
+
+}
+
+// کنترل دکمه‌ها
+arPanel.addEventListener("click", function(event) {
+
+  const button = event.target.closest(
+    "button[data-kind]"
+  );
+
+  if (!button) return;
+
+  applyControl(button);
+
+});
+
+// --------------------------------------------------
+// قفل و بازنشانی
+// --------------------------------------------------
+
+lockButton.addEventListener("click", function() {
+
+  if (!placed) {
+    setStatus("ابتدا مدل را قرار بده.");
+    return;
+  }
+
+  locked = !locked;
+
+  lockButton.textContent = locked
+    ? "بازکردن قفل مدل"
+    : "قفل مدل";
+
+  setStatus(
+    locked ? "مدل قفل شد." : "قفل مدل باز شد."
+  );
+
+});
+
+resetButton.addEventListener("click", function() {
+
+  if (!placed) return;
+
+  if (locked) {
+    setStatus("ابتدا قفل مدل را باز کن.");
+    return;
+  }
+
+  modelRoot.position.copy(basePosition);
+  modelRoot.quaternion.copy(baseQuaternion);
+  modelRoot.scale.copy(baseScale);
+
+  setStatus("موقعیت اولیه مدل بازگردانده شد.");
+
+});
+
+resetScaleButton.addEventListener("click", function() {
+
+  if (!placed || locked) return;
+
+  modelRoot.scale.copy(baseScale);
+
+  setStatus("اندازه اولیه مدل بازگردانده شد.");
+
+});
+
+// --------------------------------------------------
+// مخفی و نمایش پنل
+// --------------------------------------------------
+
+hidePanelButton.addEventListener("click", function() {
+
+  arPanel.classList.add("hidden");
+  showPanelButton.classList.remove("hidden");
+
+});
+
+showPanelButton.addEventListener("click", function() {
+
+  arPanel.classList.remove("hidden");
+  showPanelButton.classList.add("hidden");
+
+});
+
+// جلوگیری از تبدیل لمس دکمه‌های پنل به فرمان انتخاب WebXR
+overlayRoot.addEventListener(
+  "beforexrselect",
+  function(event) {
+
+    if (
+      event.target.closest("button") ||
+      event.target.closest("select") ||
+      event.target.closest("input")
+    ) {
+      event.preventDefault();
+    }
+
+  }
+);
+
+// --------------------------------------------------
+// اندازه صفحه
+// --------------------------------------------------
+
+window.addEventListener("resize", function() {
+
+  camera.aspect =
+    window.innerWidth / window.innerHeight;
+
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+  );
+
+});
+
+setStatus("موتور سه‌بعدی آماده بارگذاری مدل است.");
+
 </script>
 
 </body>
