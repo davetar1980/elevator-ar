@@ -1,65 +1,430 @@
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fa" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>نمایش سه‌بعدی آسانسور مهرگان</title>
-
-  <script type="module"
-    src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js">
-  </script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <title>نمایش AR آسانسور مهرگان</title>
 
   <style>
-    body {
+    * { box-sizing: border-box; }
+    html, body {
       margin: 0;
-      font-family: Tahoma, sans-serif;
-      background: #f2f3f5;
-      text-align: center;
-    }
-
-    h2 {
-      padding: 15px;
-      color: #222;
-    }
-
-    model-viewer {
       width: 100%;
-      height: 75vh;
-      background: #ffffff;
+      height: 100%;
+      overflow: hidden;
+      background: #111827;
+      color: #fff;
+      font-family: Tahoma, Arial, sans-serif;
     }
-
-    #ar-button {
-      background: #174c83;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 14px 24px;
-      font-size: 16px;
-      cursor: pointer;
+    canvas { display: block; width: 100%; height: 100%; }
+    #panel {
+      position: fixed;
+      z-index: 10;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: max(12px, env(safe-area-inset-top)) 12px max(14px, env(safe-area-inset-bottom));
+      pointer-events: none;
     }
+    .top, .bottom { pointer-events: none; }
+    .top {
+      align-self: stretch;
+      background: rgba(15, 23, 42, .78);
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 12px;
+      padding: 11px 13px;
+      text-align: center;
+      backdrop-filter: blur(8px);
+    }
+    #status {
+      margin-top: 6px;
+      font-size: 12px;
+      line-height: 1.7;
+      color: #dbeafe;
+    }
+    .bottom {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      align-items: center;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+    }
+    button {
+      pointer-events: auto;
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 10px;
+      padding: 12px 14px;
+      min-height: 44px;
+      color: #fff;
+      background: #1d4ed8;
+      font: 600 14px Tahoma, Arial, sans-serif;
+      box-shadow: 0 3px 12px rgba(0,0,0,.2);
+      touch-action: manipulation;
+    }
+    button.secondary { background: rgba(30,41,59,.94); }
+    button:disabled { opacity: .45; }
+    #startAR { background: #047857; min-width: 190px; }
+    #hint {
+      max-width: 560px;
+      padding: 8px 11px;
+      border-radius: 9px;
+      background: rgba(15,23,42,.78);
+      color: #f8fafc;
+      text-align: center;
+      font-size: 11px;
+      line-height: 1.7;
+    }
+    .hidden { display: none !important; }
   </style>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
 </head>
 
 <body>
+  <div id="panel">
+    <div class="top">
+      <strong>نمایش واقعیت افزوده آسانسور مهرگان</strong>
+      <div id="status">در حال بارگذاری مدل آسانسور…</div>
+    </div>
 
-  <h2>مدل سه‌بعدی آسانسور مهرگان</h2>
+    <div class="bottom">
+      <div id="controls" class="controls hidden">
+        <button id="rotateLeft" class="secondary" type="button">چرخش چپ ↶</button>
+        <button id="rotateRight" class="secondary" type="button">چرخش راست ↷</button>
+        <button id="smaller" class="secondary" type="button">کوچک‌تر −</button>
+        <button id="larger" class="secondary" type="button">بزرگ‌تر +</button>
+        <button id="reset" class="secondary" type="button">بازنشانی موقعیت</button>
+      </div>
+      <button id="startAR" type="button" disabled>بارگذاری مدل…</button>
+      <div id="hint">
+        برای قرار دادن مدل یک‌بار روی صفحه بزن. با یک انگشت نگه دار و بکش تا جابه‌جا شود؛
+        با دو انگشت بچرخان و با باز و بسته کردن دو انگشت اندازه را تغییر بده.
+        اگر کشیدن پشتیبانی نشد، با یک لمس محل جدید را انتخاب کن.
+      </div>
+    </div>
+  </div>
 
-  <model-viewer
-    src="elevator.glb"
-    alt="مدل سه‌بعدی آسانسور"
-    camera-controls
-    auto-rotate
-    ar
-   ar-modes="webxr"
-    shadow-intensity="1"
-    exposure="1">
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-    <button slot="ar-button" id="ar-button">
-      مشاهده آسانسور در محیط واقعی (AR)
-    </button>
+    const statusEl = document.getElementById('status');
+    const startButton = document.getElementById('startAR');
+    const controlsEl = document.getElementById('controls');
 
-  </model-viewer>
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
 
+    const renderer = new THREE.WebGLRenderer({
+      alpha: true,
+      antialias: true,
+      powerPreference: 'high-performance'
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+    renderer.xr.setReferenceSpaceType('local');
+    renderer.setClearColor(0x000000, 0);
+    document.body.appendChild(renderer.domElement);
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x777777, 1.8));
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.0);
+    keyLight.position.set(1, 3, 2);
+    scene.add(keyLight);
+
+    const modelRoot = new THREE.Group();
+    modelRoot.visible = false;
+    scene.add(modelRoot);
+
+    const reticle = new THREE.Mesh(
+      new THREE.RingGeometry(0.075, 0.095, 32),
+      new THREE.MeshBasicMaterial({ color: 0x22c55e, side: THREE.DoubleSide })
+    );
+    reticle.rotation.x = -Math.PI / 2;
+    reticle.matrixAutoUpdate = true;
+    reticle.visible = false;
+    scene.add(reticle);
+
+    let modelLoaded = false;
+    let placed = false;
+    let session = null;
+    let referenceSpace = null;
+    let hitTestSource = null;
+    let transientHitTestSource = null;
+    let activeTouchInput = null;
+    let lastReticleMatrix = null;
+    let initialModelPosition = new THREE.Vector3();
+    let initialModelQuaternion = new THREE.Quaternion();
+    let initialScale = 1;
+    let dragWasSupported = false;
+
+    const loader = new GLTFLoader();
+    loader.load(
+      './elevator.glb',
+      (gltf) => {
+        const model = gltf.scene;
+        const bounds = new THREE.Box3().setFromObject(model);
+        const size = new THREE.Vector3();
+        const center = new THREE.Vector3();
+        bounds.getSize(size);
+        bounds.getCenter(center);
+
+        // مرکز افقی مدل را روی نقطه قرارگیری می‌آوریم و کف مدل را روی سطح می‌نشانیم.
+        model.position.x -= center.x;
+        model.position.z -= center.z;
+        model.position.y -= bounds.min.y;
+
+        modelRoot.add(model);
+        modelLoaded = true;
+        startButton.disabled = false;
+        startButton.textContent = 'شروع نمایش AR';
+        statusEl.textContent =
+          `مدل آماده است. ابعاد تقریبی فایل: ${size.x.toFixed(2)} × ${size.y.toFixed(2)} × ${size.z.toFixed(2)} واحد`;
+      },
+      undefined,
+      (error) => {
+        console.error(error);
+        statusEl.textContent = 'بارگذاری elevator.glb ناموفق بود. نام و محل فایل را بررسی کن.';
+      }
+    );
+
+    function setStatus(message) {
+      statusEl.textContent = message;
+    }
+
+    async function startAR() {
+      if (!modelLoaded) return;
+
+      if (!navigator.xr) {
+        setStatus('این مرورگر WebXR را ارائه نمی‌کند. صفحه را با Chrome باز کن.');
+        return;
+      }
+
+      try {
+        const supported = await navigator.xr.isSessionSupported('immersive-ar');
+        if (!supported) {
+          setStatus('حالت immersive-ar در این مرورگر در دسترس نیست.');
+          return;
+        }
+
+        session = await navigator.xr.requestSession('immersive-ar', {
+          requiredFeatures: ['hit-test'],
+          optionalFeatures: ['dom-overlay', 'local-floor'],
+          domOverlay: { root: document.body }
+        });
+
+        await renderer.xr.setSession(session);
+        referenceSpace = renderer.xr.getReferenceSpace();
+
+        const viewerSpace = await session.requestReferenceSpace('viewer');
+        hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+
+        try {
+          transientHitTestSource = await session.requestHitTestSourceForTransientInput({
+            profile: 'generic-touchscreen',
+            entityTypes: ['plane', 'point']
+          });
+          dragWasSupported = true;
+        } catch (e) {
+          console.warn('Transient touchscreen hit-test unavailable:', e);
+          dragWasSupported = false;
+        }
+
+        session.addEventListener('selectstart', (event) => {
+          if (placed && dragWasSupported) {
+            activeTouchInput = event.inputSource;
+            setStatus('در حال جابه‌جایی؛ انگشت را روی صفحه نگه دار و حرکت بده.');
+          }
+        });
+
+        session.addEventListener('selectend', (event) => {
+          if (activeTouchInput === event.inputSource) {
+            activeTouchInput = null;
+            setStatus('برای جابه‌جایی دوباره، انگشت را روی صفحه نگه دار و بکش.');
+          }
+        });
+
+        session.addEventListener('select', () => {
+          if (!placed && reticle.visible) {
+            modelRoot.position.copy(reticle.position);
+            modelRoot.quaternion.copy(reticle.quaternion);
+            modelRoot.visible = true;
+            placed = true;
+            initialModelPosition.copy(modelRoot.position);
+            initialModelQuaternion.copy(modelRoot.quaternion);
+            initialScale = modelRoot.scale.x;
+            controlsEl.classList.remove('hidden');
+            setStatus(dragWasSupported
+              ? 'مدل قرار گرفت. برای جابه‌جایی، یک انگشت را نگه دار و بکش.'
+              : 'مدل قرار گرفت. لمس مجدد محل جدید را برای انتقال انتخاب می‌کند.');
+          } else if (placed && !dragWasSupported && reticle.visible) {
+            modelRoot.position.copy(reticle.position);
+            setStatus('موقعیت مدل تغییر کرد.');
+          }
+        });
+
+        session.addEventListener('end', () => {
+          if (hitTestSource) hitTestSource.cancel();
+          if (transientHitTestSource) transientHitTestSource.cancel();
+          hitTestSource = null;
+          transientHitTestSource = null;
+          activeTouchInput = null;
+          session = null;
+          referenceSpace = null;
+          placed = false;
+          modelRoot.visible = false;
+          reticle.visible = false;
+          controlsEl.classList.add('hidden');
+          startButton.classList.remove('hidden');
+          setStatus('نمایش AR پایان یافت. برای شروع دوباره دکمه را بزن.');
+        });
+
+        startButton.classList.add('hidden');
+        setStatus('دوربین فعال است. گوشی را آرام حرکت بده تا سطح کف شناسایی شود.');
+      } catch (error) {
+        console.error(error);
+        setStatus('شروع AR ناموفق بود: ' + (error.message || error));
+      }
+    }
+
+    startButton.addEventListener('click', startAR);
+
+    // ژست دو انگشتی: چرخش با حرکت زاویه‌ای و تغییر اندازه با فاصله دو انگشت.
+    let twoFingerGesture = null;
+
+    function touchDistance(a, b) {
+      return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+    }
+
+    function touchAngle(a, b) {
+      return Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX);
+    }
+
+    renderer.domElement.style.touchAction = 'none';
+
+    renderer.domElement.addEventListener('touchstart', (event) => {
+      if (!placed || event.touches.length !== 2) return;
+      const a = event.touches[0];
+      const b = event.touches[1];
+      twoFingerGesture = {
+        distance: touchDistance(a, b),
+        angle: touchAngle(a, b),
+        scale: modelRoot.scale.x,
+        rotation: modelRoot.rotation.y
+      };
+    }, { passive: true });
+
+    renderer.domElement.addEventListener('touchmove', (event) => {
+      if (!placed || event.touches.length !== 2 || !twoFingerGesture) return;
+      event.preventDefault();
+
+      const a = event.touches[0];
+      const b = event.touches[1];
+      const distance = touchDistance(a, b);
+      const angle = touchAngle(a, b);
+
+      if (twoFingerGesture.distance > 0) {
+        const factor = distance / twoFingerGesture.distance;
+        modelRoot.scale.setScalar(
+          THREE.MathUtils.clamp(twoFingerGesture.scale * factor, 0.02, 20)
+        );
+      }
+      modelRoot.rotation.y = twoFingerGesture.rotation +
+        (angle - twoFingerGesture.angle);
+    }, { passive: false });
+
+    renderer.domElement.addEventListener('touchend', (event) => {
+      if (event.touches.length < 2) twoFingerGesture = null;
+    }, { passive: true });
+
+    // در WebXR، لمس دکمه‌های روی تصویر نباید به‌عنوان فرمان انتخاب سطح تفسیر شود.
+    for (const id of ['rotateLeft', 'rotateRight', 'smaller', 'larger', 'reset']) {
+      document.getElementById(id).addEventListener('beforexrselect', (event) => {
+        event.preventDefault();
+      });
+    }
+
+    document.getElementById('rotateLeft').addEventListener('click', () => {
+      modelRoot.rotation.y += THREE.MathUtils.degToRad(10);
+    });
+    document.getElementById('rotateRight').addEventListener('click', () => {
+      modelRoot.rotation.y -= THREE.MathUtils.degToRad(10);
+    });
+    document.getElementById('smaller').addEventListener('click', () => {
+      modelRoot.scale.multiplyScalar(0.9);
+    });
+    document.getElementById('larger').addEventListener('click', () => {
+      modelRoot.scale.multiplyScalar(1.1);
+    });
+    document.getElementById('reset').addEventListener('click', () => {
+      modelRoot.position.copy(initialModelPosition);
+      modelRoot.quaternion.copy(initialModelQuaternion);
+      modelRoot.scale.setScalar(initialScale);
+      setStatus('موقعیت و اندازه اولیه مدل بازیابی شد.');
+    });
+
+    renderer.setAnimationLoop((time, frame) => {
+      if (frame && session && referenceSpace && hitTestSource) {
+        const hits = frame.getHitTestResults(hitTestSource);
+
+        if (hits.length > 0) {
+          const pose = hits[0].getPose(referenceSpace);
+          if (pose) {
+            lastReticleMatrix = new THREE.Matrix4().fromArray(pose.transform.matrix);
+            reticle.matrix.copy(lastReticleMatrix);
+            reticle.matrix.decompose(reticle.position, reticle.quaternion, reticle.scale);
+            reticle.visible = !placed || !dragWasSupported;
+          }
+        } else if (!placed) {
+          reticle.visible = false;
+        }
+
+        if (placed && activeTouchInput && transientHitTestSource) {
+          try {
+            const transientResults = frame.getHitTestResultsForTransientInput(transientHitTestSource);
+            for (const inputResult of transientResults) {
+              if (inputResult.inputSource === activeTouchInput && inputResult.results.length > 0) {
+                const dragPose = inputResult.results[0].getPose(referenceSpace);
+                if (dragPose) {
+                  modelRoot.position.set(
+                    dragPose.transform.position.x,
+                    dragPose.transform.position.y,
+                    dragPose.transform.position.z
+                  );
+                }
+                break;
+              }
+            }
+          } catch (e) {
+            console.warn('Transient hit-test frame error:', e);
+          }
+        }
+      }
+
+      renderer.render(scene, camera);
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
 </body>
 </html>
