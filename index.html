@@ -257,9 +257,22 @@ select {
 
 #calibrationFields {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
   margin-top: 7px;
+}
+
+#calibrationFields input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  border: 1px solid rgba(255,255,255,.35);
+  border-radius: 7px;
+  padding: 0 5px;
+  color: white;
+  background: rgba(35,35,35,.78);
+  font-family: inherit;
+  font-size: 11px;
 }
 
 #knownDimension {
@@ -457,21 +470,25 @@ select {
 
     <div class="sectionTitle">کالیبراسیون با بُعد معلوم</div>
 
-    <div id="calibrationFields">
-      <div class="setting">
-        <label for="calibrationAxis">محور بُعد معلوم</label>
-        <select id="calibrationAxis">
-          <option value="x">عرض X</option>
-          <option value="y" selected>ارتفاع Y</option>
-          <option value="z">عمق Z</option>
-        </select>
-      </div>
+   <div id="calibrationFields">
+  <div class="setting">
+    <label for="knownX">عرض X (mm)</label>
+    <input id="knownX" type="number" inputmode="decimal"
+      min="0.001" step="any" placeholder="اختیاری">
+  </div>
 
-      <div class="setting">
-        <label for="knownDimension">مقدار واقعی (mm)</label>
-        <input id="knownDimension" type="number" inputmode="decimal" min="0.001" step="any" placeholder="مثلاً 18000">
-      </div>
-    </div>
+  <div class="setting">
+    <label for="knownY">ارتفاع Y (mm)</label>
+    <input id="knownY" type="number" inputmode="decimal"
+      min="0.001" step="any" placeholder="اختیاری">
+  </div>
+
+  <div class="setting">
+    <label for="knownZ">عمق Z (mm)</label>
+    <input id="knownZ" type="number" inputmode="decimal"
+      min="0.001" step="any" placeholder="اختیاری">
+  </div>
+</div>
 
     <button id="applyCalibration">اعمال کالیبراسیون</button>
     <div id="calibrationStatus">برای شروع، یک بُعد واقعی از مدل را وارد کن.</div>
@@ -551,8 +568,10 @@ const dimensionX = document.getElementById("dimensionX");
 const dimensionY = document.getElementById("dimensionY");
 const dimensionZ = document.getElementById("dimensionZ");
 
-const calibrationAxis = document.getElementById("calibrationAxis");
-const knownDimension = document.getElementById("knownDimension");
+const knownX = document.getElementById("knownX");
+const knownY = document.getElementById("knownY");
+const knownZ = document.getElementById("knownZ");
+
 const applyCalibrationButton = document.getElementById("applyCalibration");
 const calibrationStatus = document.getElementById("calibrationStatus");
 
@@ -662,7 +681,7 @@ let baseQuaternion = new THREE.Quaternion();
 let baseScale = new THREE.Vector3(1, 1, 1);
 
 let modelBaseDimensions = new THREE.Vector3();
-let calibratedScale = 1;
+let calibratedScale = new THREE.Vector3(1, 1, 1);
 let hasCalibration = false;
 
 // --------------------------------------------------
@@ -677,6 +696,16 @@ function updateDimensionReadout() {
     dimensionZ.textContent = "—";
     return;
   }
+
+  dimensionX.textContent =
+    (modelBaseDimensions.x * modelRoot.scale.x * 1000).toFixed(1);
+
+  dimensionY.textContent =
+    (modelBaseDimensions.y * modelRoot.scale.y * 1000).toFixed(1);
+
+  dimensionZ.textContent =
+    (modelBaseDimensions.z * modelRoot.scale.z * 1000).toFixed(1);
+}
 
   // واحدهای صحنه Three.js در AR برحسب متر در نظر گرفته می‌شوند.
   const scale = modelRoot.scale.x * 1000;
@@ -748,13 +777,15 @@ function loadModel(url, name) {
       baseQuaternion.identity();
       baseScale.set(1, 1, 1);
 
-      calibratedScale = 1;
-      hasCalibration = false;
+     calibratedScale.set(1, 1, 1);
+hasCalibration = false;
 
       calibrationStatus.textContent =
         "مدل هنوز کالیبره نشده است؛ یک بُعد واقعی وارد کن.";
 
-      knownDimension.value = "";
+    knownX.value = "";
+knownY.value = "";
+knownZ.value = "";
 
       updateDimensionReadout();
 
@@ -1082,12 +1113,18 @@ function applyControl(button) {
       ? 1 + step
       : 1 - step;
 
-    const nextScale = modelRoot.scale.x * factor;
+   const nextScaleX = modelRoot.scale.x * factor;
+const nextScaleY = modelRoot.scale.y * factor;
+const nextScaleZ = modelRoot.scale.z * factor;
 
-    if (nextScale >= 0.01 && nextScale <= 100) {
-      modelRoot.scale.multiplyScalar(factor);
-      updateDimensionReadout();
-    }
+if (
+  nextScaleX >= 0.01 && nextScaleX <= 100 &&
+  nextScaleY >= 0.01 && nextScaleY <= 100 &&
+  nextScaleZ >= 0.01 && nextScaleZ <= 100
+) {
+  modelRoot.scale.multiplyScalar(factor);
+  updateDimensionReadout();
+}
 
   }
 
@@ -1118,62 +1155,95 @@ applyCalibrationButton.addEventListener("click", function() {
     return;
   }
 
-  const axis = calibrationAxis.value;
-  const knownMm = Number(knownDimension.value);
-  const sourceDimension = modelBaseDimensions[axis];
-
-  if (!Number.isFinite(knownMm) || knownMm <= 0) {
-    calibrationStatus.textContent =
-      "یک مقدار واقعی معتبر برحسب میلی‌متر وارد کن.";
-    return;
-  }
-
-  if (!Number.isFinite(sourceDimension) || sourceDimension <= 0) {
-    calibrationStatus.textContent =
-      "ابعاد این محور در فایل GLB قابل اندازه‌گیری نیست.";
-    return;
-  }
-
   if (locked) {
     calibrationStatus.textContent =
       "برای کالیبراسیون ابتدا قفل مدل را باز کن.";
     return;
   }
 
-  // هر واحد مختصات Three.js در AR معادل یک متر فرض می‌شود.
-  const targetMeters = knownMm / 1000;
+  const inputs = [
+    { axis: "x", input: knownX, name: "عرض X" },
+    { axis: "y", input: knownY, name: "ارتفاع Y" },
+    { axis: "z", input: knownZ, name: "عمق Z" }
+  ];
 
-  const nextScale = targetMeters / sourceDimension;
+  const enteredInputs = inputs.filter(
+    item => item.input.value.trim() !== ""
+  );
 
-  if (
-    !Number.isFinite(nextScale) ||
-    nextScale < 0.000001 ||
-    nextScale > 1000000
-  ) {
+  if (enteredInputs.length === 0) {
     calibrationStatus.textContent =
-      "ضریب محاسبه‌شده خارج از محدوده مجاز است.";
+      "حداقل یکی از ابعاد واقعی را وارد کن.";
     return;
   }
 
-  calibratedScale = nextScale;
+  // ابتدا همه مقادیر بررسی می‌شوند تا در صورت وجود خطا
+  // هیچ بخشی از کالیبراسیون تغییر نکند.
+  const nextScale = calibratedScale.clone();
+
+  for (const item of enteredInputs) {
+
+    const knownMm = Number(item.input.value);
+    const sourceDimension = modelBaseDimensions[item.axis];
+
+    if (!Number.isFinite(knownMm) || knownMm <= 0) {
+      calibrationStatus.textContent =
+        "مقدار " + item.name + " معتبر نیست.";
+      return;
+    }
+
+    if (
+      !Number.isFinite(sourceDimension) ||
+      sourceDimension <= 0
+    ) {
+      calibrationStatus.textContent =
+        "ابعاد " + item.name + " در فایل GLB قابل اندازه‌گیری نیست.";
+      return;
+    }
+
+    // تبدیل میلی‌متر به متر
+    const targetMeters = knownMm / 1000;
+
+    // محاسبه ضریب مستقل برای همان محور
+    const axisScale = targetMeters / sourceDimension;
+
+    if (
+      !Number.isFinite(axisScale) ||
+      axisScale < 0.000001 ||
+      axisScale > 1000000
+    ) {
+      calibrationStatus.textContent =
+        "ضریب محاسبه‌شده برای " + item.name +
+        " خارج از محدوده مجاز است.";
+      return;
+    }
+
+    nextScale[item.axis] = axisScale;
+  }
+
+  // ثبت ضرایب جدید
+  calibratedScale.copy(nextScale);
+  baseScale.copy(calibratedScale);
+
+  // اعمال مستقیم روی مدل
+  modelRoot.scale.copy(calibratedScale);
+
   hasCalibration = true;
-
-  baseScale.setScalar(calibratedScale);
-
-  modelRoot.scale.copy(baseScale);
 
   updateDimensionReadout();
 
-  const axisName = axis.toUpperCase();
+  const calibratedNames = enteredInputs.map(
+    item => item.name
+  );
 
   calibrationStatus.textContent =
-    "کالیبراسیون انجام شد؛ محور " + axisName +
-    " برابر " + knownMm.toLocaleString("en-US") + " mm تنظیم شد.";
+    "کالیبراسیون موفق: " +
+    calibratedNames.join("، ") +
+    " تنظیم شد.";
 
-  setStatus("ابعاد مدل با مقدار واقعی واردشده کالیبره شد.");
+  setStatus("ابعاد مدل با موفقیت کالیبره شد.");
 
 });
-
 // --------------------------------------------------
 // قفل و بازنشانی
 // --------------------------------------------------
