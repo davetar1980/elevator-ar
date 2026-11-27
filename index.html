@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -7,9 +8,7 @@
 <title>Mehrgan Elevator AR</title>
 
 <style>
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 html, body {
   margin: 0;
@@ -282,6 +281,13 @@ select {
   background: rgba(8,124,87,.88);
 }
 
+#saveProjectSettings {
+  width: 100%;
+  margin-top: 7px;
+  min-height: 42px;
+  background: #174b78;
+}
+
 #calibrationStatus {
   margin-top: 6px;
   color: #ddd;
@@ -480,7 +486,14 @@ select {
     </div>
 
     <button id="applyCalibration">اعمال کالیبراسیون</button>
-    <div id="calibrationStatus">برای شروع، یک بُعد واقعی از مدل را وارد کن.</div>
+
+    <button id="saveProjectSettings">
+      ذخیره تنظیمات این پروژه
+    </button>
+
+    <div id="calibrationStatus">
+      برای شروع، یک بُعد واقعی از مدل را وارد کن.
+    </div>
 
     <div id="settings">
 
@@ -534,6 +547,10 @@ select {
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
+// --------------------------------------------------
+// عناصر رابط کاربری
+// --------------------------------------------------
+
 const statusBox = document.getElementById("status");
 const startButton = document.getElementById("startAR");
 const chooseButton = document.getElementById("chooseModel");
@@ -561,8 +578,14 @@ const knownX = document.getElementById("knownX");
 const knownY = document.getElementById("knownY");
 const knownZ = document.getElementById("knownZ");
 
-const applyCalibrationButton = document.getElementById("applyCalibration");
-const calibrationStatus = document.getElementById("calibrationStatus");
+const applyCalibrationButton =
+  document.getElementById("applyCalibration");
+
+const saveProjectSettingsButton =
+  document.getElementById("saveProjectSettings");
+
+const calibrationStatus =
+  document.getElementById("calibrationStatus");
 
 function setStatus(message) {
   statusBox.textContent = message;
@@ -674,16 +697,226 @@ let calibratedScale = new THREE.Vector3(1, 1, 1);
 let hasCalibration = false;
 
 // --------------------------------------------------
+// مدیریت تنظیمات اختصاصی هر پروژه
+// --------------------------------------------------
+
+const STORAGE_PREFIX = "mehrgan_ar_project_v1_";
+
+let activeProjectKey = "";
+
+let pendingPlacementSettings = {
+  positionOffset: [0, 0, 0],
+  rotationOffset: [0, 0, 0, 1],
+  currentScale: [1, 1, 1]
+};
+
+function getProjectKey(name, file) {
+
+  // فایل پیش‌فرض داخل سایت
+  if (!file) {
+    return "default_" + name;
+  }
+
+  // مشخصات فایل انتخاب‌شده از Google Drive
+  return [
+    file.name,
+    file.size,
+    file.lastModified,
+    file.type || "model/gltf-binary"
+  ].join("|");
+
+}
+
+function isValidVectorArray(value, length) {
+
+  return (
+    Array.isArray(value) &&
+    value.length === length &&
+    value.every(Number.isFinite)
+  );
+
+}
+
+function isValidScale(value) {
+
+  return (
+    isValidVectorArray(value, 3) &&
+    value.every(v => v >= 0.01 && v <= 100)
+  );
+
+}
+
+function readProjectSettings() {
+
+  if (!activeProjectKey) return null;
+
+  try {
+
+    const raw = localStorage.getItem(
+      STORAGE_PREFIX + activeProjectKey
+    );
+
+    if (!raw) return null;
+
+    const data = JSON.parse(raw);
+
+    if (!data || typeof data !== "object") {
+      return null;
+    }
+
+    return data;
+
+  } catch (error) {
+
+    console.error("SETTINGS READ ERROR:", error);
+    return null;
+
+  }
+
+}
+
+function restoreProjectSettings() {
+
+  const saved = readProjectSettings();
+
+  calibratedScale.set(1, 1, 1);
+  modelRoot.scale.set(1, 1, 1);
+  hasCalibration = false;
+
+  pendingPlacementSettings = {
+    positionOffset: [0, 0, 0],
+    rotationOffset: [0, 0, 0, 1],
+    currentScale: [1, 1, 1]
+  };
+
+  if (!saved) {
+
+    baseScale.set(1, 1, 1);
+
+    knownX.value = "";
+    knownY.value = "";
+    knownZ.value = "";
+
+    calibrationStatus.textContent =
+      "این پروژه تنظیمات ذخیره‌شده ندارد.";
+
+    return;
+
+  }
+
+  // بازیابی ضرایب کالیبراسیون
+  if (isValidScale(saved.calibratedScale)) {
+
+    calibratedScale.fromArray(
+      saved.calibratedScale
+    );
+
+  }
+
+  hasCalibration = saved.hasCalibration === true;
+
+  // بازیابی مقیاس فعلی
+  if (isValidScale(saved.currentScale)) {
+
+    modelRoot.scale.fromArray(
+      saved.currentScale
+    );
+
+  } else {
+
+    modelRoot.scale.copy(calibratedScale);
+
+  }
+
+  // اندازه مرجع برای دکمه بازنشانی اندازه
+  baseScale.copy(calibratedScale);
+
+  // بازیابی جابه‌جایی نسبی
+  if (
+    isValidVectorArray(saved.positionOffset, 3)
+  ) {
+
+    pendingPlacementSettings.positionOffset =
+      saved.positionOffset.slice();
+
+  }
+
+  // بازیابی چرخش نسبی
+  if (
+    isValidVectorArray(saved.rotationOffset, 4)
+  ) {
+
+    const q = new THREE.Quaternion()
+      .fromArray(saved.rotationOffset);
+
+    if (q.lengthSq() > 0.000001) {
+
+      q.normalize();
+
+      pendingPlacementSettings.rotationOffset =
+        q.toArray();
+
+    }
+
+  }
+
+  pendingPlacementSettings.currentScale =
+    modelRoot.scale.toArray();
+
+  // بازیابی گام‌های کنترلی
+  if (
+    ["1", "5", "10", "50", "100"].includes(
+      String(saved.moveStep)
+    )
+  ) {
+    moveStep.value = String(saved.moveStep);
+  }
+
+  if (
+    ["1", "5", "15", "45"].includes(
+      String(saved.rotateStep)
+    )
+  ) {
+    rotateStep.value = String(saved.rotateStep);
+  }
+
+  if (
+    ["0.01", "0.05", "0.10"].includes(
+      String(saved.scaleStep)
+    )
+  ) {
+    scaleStep.value = String(saved.scaleStep);
+  }
+
+  // بازیابی مقادیر ورودی کالیبراسیون
+  knownX.value =
+    typeof saved.knownX === "string" ? saved.knownX : "";
+
+  knownY.value =
+    typeof saved.knownY === "string" ? saved.knownY : "";
+
+  knownZ.value =
+    typeof saved.knownZ === "string" ? saved.knownZ : "";
+
+  calibrationStatus.textContent =
+    "تنظیمات ذخیره‌شده این پروژه بازیابی شد.";
+
+}
+
+// --------------------------------------------------
 // محاسبه و نمایش ابعاد مدل
 // --------------------------------------------------
 
 function updateDimensionReadout() {
 
   if (modelBaseDimensions.length() === 0) {
+
     dimensionX.textContent = "—";
     dimensionY.textContent = "—";
     dimensionZ.textContent = "—";
+
     return;
+
   }
 
   dimensionX.textContent =
@@ -694,6 +927,7 @@ function updateDimensionReadout() {
 
   dimensionZ.textContent =
     (modelBaseDimensions.z * modelRoot.scale.z * 1000).toFixed(1);
+
 }
 
 function measureModel(gltfScene) {
@@ -703,19 +937,24 @@ function measureModel(gltfScene) {
   const bounds = new THREE.Box3().setFromObject(gltfScene);
 
   if (bounds.isEmpty()) {
+
     modelBaseDimensions.set(0, 0, 0);
+
   } else {
+
     bounds.getSize(modelBaseDimensions);
+
   }
 
   updateDimensionReadout();
+
 }
 
 // --------------------------------------------------
 // بارگذاری مدل
 // --------------------------------------------------
 
-function loadModel(url, name) {
+function loadModel(url, name, file = null, isLocal = false) {
 
   const token = ++loadToken;
 
@@ -725,20 +964,30 @@ function loadModel(url, name) {
   setStatus("در حال بارگذاری مدل...");
 
   loader.load(
+
     url,
 
     function(gltf) {
 
       if (token !== loadToken) return;
 
+      // پاک‌سازی مدل قبلی از صحنه
       while (modelRoot.children.length > 0) {
-        modelRoot.remove(modelRoot.children[0]);
+
+        const oldChild = modelRoot.children[0];
+
+        modelRoot.remove(oldChild);
+
       }
 
       modelRoot.scale.set(1, 1, 1);
 
       modelRoot.add(gltf.scene);
 
+      // شناسه پروژه
+      activeProjectKey = getProjectKey(name, file);
+
+      // اندازه‌گیری مدل در مقیاس اولیه
       measureModel(gltf.scene);
 
       modelRoot.visible = false;
@@ -753,21 +1002,26 @@ function loadModel(url, name) {
       baseQuaternion.identity();
       baseScale.set(1, 1, 1);
 
-      calibratedScale.set(1, 1, 1);
-      hasCalibration = false;
-
-      calibrationStatus.textContent =
-        "مدل هنوز کالیبره نشده است؛ یک بُعد واقعی وارد کن.";
-
-      knownX.value = "";
-      knownY.value = "";
-      knownZ.value = "";
+      // بازیابی تنظیمات اختصاصی همین فایل
+      restoreProjectSettings();
 
       updateDimensionReadout();
 
       lockButton.textContent = "قفل مدل";
 
       modelName.textContent = name;
+
+      // پس از بارگذاری موفق فایل جدید،
+      // فایل موقت قبلی آزاد می‌شود.
+      if (isLocal) {
+
+        if (localModelURL && localModelURL !== url) {
+          URL.revokeObjectURL(localModelURL);
+        }
+
+        localModelURL = url;
+
+      }
 
       setStatus("مدل با موفقیت بارگذاری شد.");
 
@@ -784,9 +1038,16 @@ function loadModel(url, name) {
       modelLoaded = false;
       startButton.disabled = true;
 
+      // اگر فایل محلی جدید بارگذاری نشد،
+      // فایل موقت آن آزاد می‌شود.
+      if (isLocal) {
+        URL.revokeObjectURL(url);
+      }
+
       setStatus("خطا در بارگذاری GLB.");
 
     }
+
   );
 
 }
@@ -795,11 +1056,13 @@ function loadModel(url, name) {
 loadModel("./elevator.glb", "elevator.glb");
 
 // --------------------------------------------------
-// انتخاب فایل از حافظه گوشی
+// انتخاب فایل از گوشی یا Google Drive
 // --------------------------------------------------
 
 chooseButton.addEventListener("click", function() {
+
   fileInput.click();
+
 });
 
 fileInput.addEventListener("change", function(event) {
@@ -809,41 +1072,18 @@ fileInput.addEventListener("change", function(event) {
   if (!file) return;
 
   if (!file.name.toLowerCase().endsWith(".glb")) {
+
     alert("فقط فایل GLB قابل انتخاب است.");
+
     fileInput.value = "";
+
     return;
+
   }
 
   const newURL = URL.createObjectURL(file);
-  const previousURL = localModelURL;
 
-  loadModel(newURL, file.name);
-
-  localModelURL = newURL;
-
-  // پاک‌سازی فایل قبلی پس از بارگذاری موفق فایل جدید
-  const checkToken = loadToken;
-
-  const checkLoaded = function() {
-
-    if (loadToken !== checkToken) return;
-
-    if (modelLoaded) {
-
-      if (previousURL) {
-        URL.revokeObjectURL(previousURL);
-      }
-
-    }
-
-  };
-
-  // وضعیت فایل جدید از طریق خطای بارگذاری نیز مدیریت می‌شود.
-  setTimeout(() => {
-    if (!modelLoaded && loadToken === checkToken) {
-      // فایل قبلی همچنان در حافظه نگه داشته می‌شود.
-    }
-  }, 100);
+  loadModel(newURL, file.name, file, true);
 
   fileInput.value = "";
 
@@ -860,13 +1100,19 @@ let viewerSpace = null;
 async function startAR() {
 
   if (!modelLoaded) {
+
     setStatus("ابتدا منتظر بارگذاری مدل بمان.");
+
     return;
+
   }
 
   if (!navigator.xr) {
+
     setStatus("مرورگر از WebXR پشتیبانی نمی‌کند.");
+
     return;
+
   }
 
   try {
@@ -874,7 +1120,9 @@ async function startAR() {
     setStatus("در حال درخواست دسترسی AR...");
 
     const sessionPromise = navigator.xr.requestSession(
+
       "immersive-ar",
+
       {
         requiredFeatures: [
           "hit-test",
@@ -889,6 +1137,7 @@ async function startAR() {
           root: overlayRoot
         }
       }
+
     );
 
     const session = await sessionPromise;
@@ -910,8 +1159,10 @@ async function startAR() {
     session.addEventListener("end", function() {
 
       if (hitTestSource) {
+
         hitTestSource.cancel();
         hitTestSource = null;
+
       }
 
       currentSession = null;
@@ -1015,23 +1266,46 @@ function placeModel() {
     return;
   }
 
-  modelRoot.position.copy(reticle.position);
-  modelRoot.quaternion.copy(reticle.quaternion);
-  modelRoot.scale.copy(baseScale);
+  // محل و جهت اولیه سطح در جلسه فعلی
+  basePosition.copy(reticle.position);
+  baseQuaternion.copy(reticle.quaternion);
+
+  // اعمال جابه‌جایی ذخیره‌شده نسبت به محل جدید
+  const positionOffset = new THREE.Vector3()
+    .fromArray(
+      pendingPlacementSettings.positionOffset
+    );
+
+  modelRoot.position.copy(basePosition);
+  modelRoot.position.add(positionOffset);
+
+  // اعمال چرخش ذخیره‌شده نسبت به جهت جدید سطح
+  const rotationOffset = new THREE.Quaternion()
+    .fromArray(
+      pendingPlacementSettings.rotationOffset
+    );
+
+  modelRoot.quaternion
+    .copy(rotationOffset)
+    .multiply(baseQuaternion);
+
+  // اعمال مقیاس ذخیره‌شده
+  modelRoot.scale.fromArray(
+    pendingPlacementSettings.currentScale
+  );
+
+  // اندازه مرجع برای بازنشانی
+  baseScale.copy(calibratedScale);
 
   modelRoot.visible = true;
 
   placed = true;
 
-  basePosition.copy(modelRoot.position);
-  baseQuaternion.copy(modelRoot.quaternion);
-  baseScale.copy(modelRoot.scale);
-
   updateDimensionReadout();
 
   reticle.visible = false;
 
-  setStatus("مدل روی سطح قرار گرفت.");
+  setStatus("مدل با تنظیمات پروژه روی سطح قرار گرفت.");
 
 }
 
@@ -1042,13 +1316,19 @@ function placeModel() {
 function applyControl(button) {
 
   if (!placed) {
+
     setStatus("ابتدا مدل را روی سطح قرار بده.");
+
     return;
+
   }
 
   if (locked) {
+
     setStatus("مدل قفل است؛ ابتدا قفل را باز کن.");
+
     return;
+
   }
 
   const kind = button.dataset.kind;
@@ -1098,15 +1378,17 @@ function applyControl(button) {
       nextScaleY >= 0.01 && nextScaleY <= 100 &&
       nextScaleZ >= 0.01 && nextScaleZ <= 100
     ) {
+
       modelRoot.scale.multiplyScalar(factor);
+
       updateDimensionReadout();
+
     }
 
   }
 
 }
 
-// کنترل دکمه‌ها
 arPanel.addEventListener("click", function(event) {
 
   const button = event.target.closest(
@@ -1126,15 +1408,21 @@ arPanel.addEventListener("click", function(event) {
 applyCalibrationButton.addEventListener("click", function() {
 
   if (!modelLoaded || modelBaseDimensions.length() === 0) {
+
     calibrationStatus.textContent =
       "ابتدا یک فایل GLB معتبر بارگذاری کن.";
+
     return;
+
   }
 
   if (locked) {
+
     calibrationStatus.textContent =
       "برای کالیبراسیون ابتدا قفل مدل را باز کن.";
+
     return;
+
   }
 
   const inputs = [
@@ -1148,13 +1436,16 @@ applyCalibrationButton.addEventListener("click", function() {
   );
 
   if (enteredInputs.length === 0) {
+
     calibrationStatus.textContent =
       "حداقل یکی از ابعاد واقعی را وارد کن.";
+
     return;
+
   }
 
-  // ابتدا همه مقادیر بررسی می‌شوند تا در صورت وجود خطا
-  // هیچ بخشی از کالیبراسیون تغییر نکند.
+  // ابتدا همه مقادیر بررسی می‌شوند
+  // تا کالیبراسیون ناقص اعمال نشود.
   const nextScale = calibratedScale.clone();
 
   for (const item of enteredInputs) {
@@ -1163,24 +1454,29 @@ applyCalibrationButton.addEventListener("click", function() {
     const sourceDimension = modelBaseDimensions[item.axis];
 
     if (!Number.isFinite(knownMm) || knownMm <= 0) {
+
       calibrationStatus.textContent =
         "مقدار " + item.name + " معتبر نیست.";
+
       return;
+
     }
 
     if (
       !Number.isFinite(sourceDimension) ||
       sourceDimension <= 0
     ) {
+
       calibrationStatus.textContent =
-        "ابعاد " + item.name + " در فایل GLB قابل اندازه‌گیری نیست.";
+        "ابعاد " + item.name +
+        " در فایل GLB قابل اندازه‌گیری نیست.";
+
       return;
+
     }
 
-    // تبدیل میلی‌متر به متر
     const targetMeters = knownMm / 1000;
 
-    // محاسبه ضریب مستقل برای همان محور
     const axisScale = targetMeters / sourceDimension;
 
     if (
@@ -1188,21 +1484,27 @@ applyCalibrationButton.addEventListener("click", function() {
       axisScale < 0.000001 ||
       axisScale > 1000000
     ) {
+
       calibrationStatus.textContent =
         "ضریب محاسبه‌شده برای " + item.name +
         " خارج از محدوده مجاز است.";
+
       return;
+
     }
 
     nextScale[item.axis] = axisScale;
+
   }
 
-  // ثبت ضرایب جدید
   calibratedScale.copy(nextScale);
+
   baseScale.copy(calibratedScale);
 
-  // اعمال مستقیم روی مدل
   modelRoot.scale.copy(calibratedScale);
+
+  pendingPlacementSettings.currentScale =
+    calibratedScale.toArray();
 
   hasCalibration = true;
 
@@ -1222,14 +1524,130 @@ applyCalibrationButton.addEventListener("click", function() {
 });
 
 // --------------------------------------------------
+// ذخیره تنظیمات پروژه
+// --------------------------------------------------
+
+saveProjectSettingsButton.addEventListener(
+  "click",
+  function() {
+
+    if (!modelLoaded || !activeProjectKey) {
+
+      setStatus("ابتدا یک مدل معتبر بارگذاری کن.");
+
+      return;
+
+    }
+
+    let positionOffset =
+      pendingPlacementSettings.positionOffset.slice();
+
+    let rotationOffset =
+      pendingPlacementSettings.rotationOffset.slice();
+
+    const currentScale = modelRoot.scale.toArray();
+
+    // اگر مدل در محیط AR قرار گرفته باشد،
+    // جابه‌جایی و چرخش نسبت به محل اولیه ذخیره می‌شوند.
+    if (placed) {
+
+      positionOffset = modelRoot.position
+        .clone()
+        .sub(basePosition)
+        .toArray();
+
+      const rotationDelta = modelRoot.quaternion
+        .clone()
+        .multiply(
+          baseQuaternion.clone().invert()
+        );
+
+      rotationDelta.normalize();
+
+      rotationOffset = rotationDelta.toArray();
+
+    }
+
+    const settings = {
+
+      version: 1,
+
+      calibratedScale: calibratedScale.toArray(),
+
+      currentScale: currentScale,
+
+      hasCalibration: hasCalibration,
+
+      positionOffset: positionOffset,
+
+      rotationOffset: rotationOffset,
+
+      moveStep: moveStep.value,
+
+      rotateStep: rotateStep.value,
+
+      scaleStep: scaleStep.value,
+
+      knownX: knownX.value,
+
+      knownY: knownY.value,
+
+      knownZ: knownZ.value,
+
+      savedAt: new Date().toISOString()
+
+    };
+
+    try {
+
+      localStorage.setItem(
+        STORAGE_PREFIX + activeProjectKey,
+        JSON.stringify(settings)
+      );
+
+      pendingPlacementSettings = {
+
+        positionOffset: positionOffset.slice(),
+
+        rotationOffset: rotationOffset.slice(),
+
+        currentScale: currentScale.slice()
+
+      };
+
+      setStatus("تنظیمات پروژه با موفقیت ذخیره شد.");
+
+      calibrationStatus.textContent =
+        "تنظیمات این پروژه ذخیره شد.";
+
+    } catch(error) {
+
+      console.error("SETTINGS SAVE ERROR:", error);
+
+      setStatus("ذخیره تنظیمات ناموفق بود.");
+
+      alert(
+        "ذخیره تنظیمات انجام نشد.\n" +
+        "ممکن است حافظه مرورگر در دسترس نباشد."
+      );
+
+    }
+
+  }
+);
+
+// --------------------------------------------------
 // قفل و بازنشانی
 // --------------------------------------------------
 
 lockButton.addEventListener("click", function() {
 
   if (!placed) {
+
     setStatus("ابتدا مدل را قرار بده.");
+
     return;
+
   }
 
   locked = !locked;
@@ -1249,13 +1667,21 @@ resetButton.addEventListener("click", function() {
   if (!placed) return;
 
   if (locked) {
+
     setStatus("ابتدا قفل مدل را باز کن.");
+
     return;
+
   }
 
   modelRoot.position.copy(basePosition);
   modelRoot.quaternion.copy(baseQuaternion);
   modelRoot.scale.copy(baseScale);
+
+  // اصلاحات ذخیره‌شده نیز به حالت اولیه برمی‌گردند
+  pendingPlacementSettings.positionOffset = [0, 0, 0];
+  pendingPlacementSettings.rotationOffset = [0, 0, 0, 1];
+  pendingPlacementSettings.currentScale = baseScale.toArray();
 
   updateDimensionReadout();
 
@@ -1268,6 +1694,9 @@ resetScaleButton.addEventListener("click", function() {
   if (!placed || locked) return;
 
   modelRoot.scale.copy(baseScale);
+
+  pendingPlacementSettings.currentScale =
+    baseScale.toArray();
 
   updateDimensionReadout();
 
@@ -1286,6 +1715,7 @@ resetScaleButton.addEventListener("click", function() {
 hidePanelButton.addEventListener("click", function() {
 
   arPanel.classList.add("hidden");
+
   showPanelButton.classList.remove("hidden");
 
 });
@@ -1293,11 +1723,15 @@ hidePanelButton.addEventListener("click", function() {
 showPanelButton.addEventListener("click", function() {
 
   arPanel.classList.remove("hidden");
+
   showPanelButton.classList.add("hidden");
 
 });
 
-// جلوگیری از تبدیل لمس دکمه‌های پنل به فرمان انتخاب WebXR
+// --------------------------------------------------
+// جلوگیری از تبدیل لمس پنل به انتخاب WebXR
+// --------------------------------------------------
+
 overlayRoot.addEventListener(
   "beforexrselect",
   function(event) {
@@ -1307,7 +1741,9 @@ overlayRoot.addEventListener(
       event.target.closest("select") ||
       event.target.closest("input")
     ) {
+
       event.preventDefault();
+
     }
 
   }
