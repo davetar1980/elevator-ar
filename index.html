@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -231,6 +230,65 @@ select {
   font-size: 12px;
 }
 
+#dimensionReadout {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin: 7px 0;
+}
+
+.dimensionValue {
+  padding: 7px 3px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 7px;
+  background: rgba(25,35,45,.68);
+  text-align: center;
+  font-size: 11px;
+  direction: ltr;
+}
+
+.dimensionValue span {
+  display: block;
+  margin-bottom: 4px;
+  color: #9edcff;
+  font-size: 10px;
+  direction: rtl;
+}
+
+#calibrationFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-top: 7px;
+}
+
+#knownDimension {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  border: 1px solid rgba(255,255,255,.35);
+  border-radius: 7px;
+  padding: 0 8px;
+  color: white;
+  background: rgba(35,35,35,.78);
+  font-family: inherit;
+  font-size: 12px;
+}
+
+#applyCalibration {
+  width: 100%;
+  margin-top: 7px;
+  min-height: 40px;
+  background: rgba(8,124,87,.88);
+}
+
+#calibrationStatus {
+  margin-top: 6px;
+  color: #ddd;
+  font-size: 10px;
+  line-height: 1.7;
+}
+
 #bottomActions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -389,6 +447,35 @@ select {
       <button id="resetScale">اندازه اولیه</button>
     </div>
 
+    <div class="sectionTitle">ابعاد واقعی مدل</div>
+
+    <div id="dimensionReadout">
+      <div class="dimensionValue"><span>عرض X</span><strong id="dimensionX">—</strong> mm</div>
+      <div class="dimensionValue"><span>ارتفاع Y</span><strong id="dimensionY">—</strong> mm</div>
+      <div class="dimensionValue"><span>عمق Z</span><strong id="dimensionZ">—</strong> mm</div>
+    </div>
+
+    <div class="sectionTitle">کالیبراسیون با بُعد معلوم</div>
+
+    <div id="calibrationFields">
+      <div class="setting">
+        <label for="calibrationAxis">محور بُعد معلوم</label>
+        <select id="calibrationAxis">
+          <option value="x">عرض X</option>
+          <option value="y" selected>ارتفاع Y</option>
+          <option value="z">عمق Z</option>
+        </select>
+      </div>
+
+      <div class="setting">
+        <label for="knownDimension">مقدار واقعی (mm)</label>
+        <input id="knownDimension" type="number" inputmode="decimal" min="0.001" step="any" placeholder="مثلاً 18000">
+      </div>
+    </div>
+
+    <button id="applyCalibration">اعمال کالیبراسیون</button>
+    <div id="calibrationStatus">برای شروع، یک بُعد واقعی از مدل را وارد کن.</div>
+
     <div id="settings">
 
       <div class="setting">
@@ -459,6 +546,15 @@ const scaleStep = document.getElementById("scaleStep");
 const lockButton = document.getElementById("lockButton");
 const resetButton = document.getElementById("resetButton");
 const resetScaleButton = document.getElementById("resetScale");
+
+const dimensionX = document.getElementById("dimensionX");
+const dimensionY = document.getElementById("dimensionY");
+const dimensionZ = document.getElementById("dimensionZ");
+
+const calibrationAxis = document.getElementById("calibrationAxis");
+const knownDimension = document.getElementById("knownDimension");
+const applyCalibrationButton = document.getElementById("applyCalibration");
+const calibrationStatus = document.getElementById("calibrationStatus");
 
 function setStatus(message) {
   statusBox.textContent = message;
@@ -565,6 +661,55 @@ let basePosition = new THREE.Vector3();
 let baseQuaternion = new THREE.Quaternion();
 let baseScale = new THREE.Vector3(1, 1, 1);
 
+let modelBaseDimensions = new THREE.Vector3();
+let calibratedScale = 1;
+let hasCalibration = false;
+
+// --------------------------------------------------
+// محاسبه و نمایش ابعاد مدل
+// --------------------------------------------------
+
+function updateDimensionReadout() {
+
+  if (modelBaseDimensions.length() === 0) {
+    dimensionX.textContent = "—";
+    dimensionY.textContent = "—";
+    dimensionZ.textContent = "—";
+    return;
+  }
+
+  // واحدهای صحنه Three.js در AR برحسب متر در نظر گرفته می‌شوند.
+  const scale = modelRoot.scale.x * 1000;
+
+  dimensionX.textContent =
+    (modelBaseDimensions.x * scale).toFixed(1);
+
+  dimensionY.textContent =
+    (modelBaseDimensions.y * scale).toFixed(1);
+
+  dimensionZ.textContent =
+    (modelBaseDimensions.z * scale).toFixed(1);
+}
+
+function measureModel(gltfScene) {
+
+  gltfScene.updateMatrixWorld(true);
+
+  const bounds = new THREE.Box3().setFromObject(gltfScene);
+
+  if (bounds.isEmpty()) {
+    modelBaseDimensions.set(0, 0, 0);
+  } else {
+    bounds.getSize(modelBaseDimensions);
+  }
+
+  updateDimensionReadout();
+}
+
+// --------------------------------------------------
+// بارگذاری مدل
+// --------------------------------------------------
+
 function loadModel(url, name) {
 
   const token = ++loadToken;
@@ -585,7 +730,11 @@ function loadModel(url, name) {
         modelRoot.remove(modelRoot.children[0]);
       }
 
+      modelRoot.scale.set(1, 1, 1);
+
       modelRoot.add(gltf.scene);
+
+      measureModel(gltf.scene);
 
       modelRoot.visible = false;
 
@@ -598,6 +747,16 @@ function loadModel(url, name) {
       basePosition.set(0, 0, 0);
       baseQuaternion.identity();
       baseScale.set(1, 1, 1);
+
+      calibratedScale = 1;
+      hasCalibration = false;
+
+      calibrationStatus.textContent =
+        "مدل هنوز کالیبره نشده است؛ یک بُعد واقعی وارد کن.";
+
+      knownDimension.value = "";
+
+      updateDimensionReadout();
 
       lockButton.textContent = "قفل مدل";
 
@@ -651,8 +810,6 @@ fileInput.addEventListener("change", function(event) {
   const newURL = URL.createObjectURL(file);
   const previousURL = localModelURL;
 
-  const tokenBefore = loadToken;
-
   loadModel(newURL, file.name);
 
   localModelURL = newURL;
@@ -669,8 +826,6 @@ fileInput.addEventListener("change", function(event) {
       if (previousURL) {
         URL.revokeObjectURL(previousURL);
       }
-
-      model.removeEventListener("load-check", checkLoaded);
 
     }
 
@@ -855,7 +1010,7 @@ function placeModel() {
 
   modelRoot.position.copy(reticle.position);
   modelRoot.quaternion.copy(reticle.quaternion);
-  modelRoot.scale.set(1, 1, 1);
+  modelRoot.scale.copy(baseScale);
 
   modelRoot.visible = true;
 
@@ -864,6 +1019,8 @@ function placeModel() {
   basePosition.copy(modelRoot.position);
   baseQuaternion.copy(modelRoot.quaternion);
   baseScale.copy(modelRoot.scale);
+
+  updateDimensionReadout();
 
   reticle.visible = false;
 
@@ -929,6 +1086,7 @@ function applyControl(button) {
 
     if (nextScale >= 0.01 && nextScale <= 100) {
       modelRoot.scale.multiplyScalar(factor);
+      updateDimensionReadout();
     }
 
   }
@@ -945,6 +1103,74 @@ arPanel.addEventListener("click", function(event) {
   if (!button) return;
 
   applyControl(button);
+
+});
+
+// --------------------------------------------------
+// کالیبراسیون ابعاد واقعی
+// --------------------------------------------------
+
+applyCalibrationButton.addEventListener("click", function() {
+
+  if (!modelLoaded || modelBaseDimensions.length() === 0) {
+    calibrationStatus.textContent =
+      "ابتدا یک فایل GLB معتبر بارگذاری کن.";
+    return;
+  }
+
+  const axis = calibrationAxis.value;
+  const knownMm = Number(knownDimension.value);
+  const sourceDimension = modelBaseDimensions[axis];
+
+  if (!Number.isFinite(knownMm) || knownMm <= 0) {
+    calibrationStatus.textContent =
+      "یک مقدار واقعی معتبر برحسب میلی‌متر وارد کن.";
+    return;
+  }
+
+  if (!Number.isFinite(sourceDimension) || sourceDimension <= 0) {
+    calibrationStatus.textContent =
+      "ابعاد این محور در فایل GLB قابل اندازه‌گیری نیست.";
+    return;
+  }
+
+  if (locked) {
+    calibrationStatus.textContent =
+      "برای کالیبراسیون ابتدا قفل مدل را باز کن.";
+    return;
+  }
+
+  // هر واحد مختصات Three.js در AR معادل یک متر فرض می‌شود.
+  const targetMeters = knownMm / 1000;
+
+  const nextScale = targetMeters / sourceDimension;
+
+  if (
+    !Number.isFinite(nextScale) ||
+    nextScale < 0.000001 ||
+    nextScale > 1000000
+  ) {
+    calibrationStatus.textContent =
+      "ضریب محاسبه‌شده خارج از محدوده مجاز است.";
+    return;
+  }
+
+  calibratedScale = nextScale;
+  hasCalibration = true;
+
+  baseScale.setScalar(calibratedScale);
+
+  modelRoot.scale.copy(baseScale);
+
+  updateDimensionReadout();
+
+  const axisName = axis.toUpperCase();
+
+  calibrationStatus.textContent =
+    "کالیبراسیون انجام شد؛ محور " + axisName +
+    " برابر " + knownMm.toLocaleString("en-US") + " mm تنظیم شد.";
+
+  setStatus("ابعاد مدل با مقدار واقعی واردشده کالیبره شد.");
 
 });
 
@@ -984,6 +1210,8 @@ resetButton.addEventListener("click", function() {
   modelRoot.quaternion.copy(baseQuaternion);
   modelRoot.scale.copy(baseScale);
 
+  updateDimensionReadout();
+
   setStatus("موقعیت اولیه مدل بازگردانده شد.");
 
 });
@@ -994,7 +1222,13 @@ resetScaleButton.addEventListener("click", function() {
 
   modelRoot.scale.copy(baseScale);
 
-  setStatus("اندازه اولیه مدل بازگردانده شد.");
+  updateDimensionReadout();
+
+  setStatus(
+    hasCalibration
+      ? "اندازه کالیبره‌شده بازگردانده شد."
+      : "اندازه اولیه مدل بازگردانده شد."
+  );
 
 });
 
