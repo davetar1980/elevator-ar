@@ -275,19 +275,6 @@ select {
   font-size: 11px;
 }
 
-#knownDimension {
-  width: 100%;
-  min-width: 0;
-  height: 38px;
-  border: 1px solid rgba(255,255,255,.35);
-  border-radius: 7px;
-  padding: 0 8px;
-  color: white;
-  background: rgba(35,35,35,.78);
-  font-family: inherit;
-  font-size: 12px;
-}
-
 #applyCalibration {
   width: 100%;
   margin-top: 7px;
@@ -470,25 +457,27 @@ select {
 
     <div class="sectionTitle">کالیبراسیون با بُعد معلوم</div>
 
-   <div id="calibrationFields">
-  <div class="setting">
-    <label for="knownX">عرض X (mm)</label>
-    <input id="knownX" type="number" inputmode="decimal"
-      min="0.001" step="any" placeholder="اختیاری">
-  </div>
+    <div id="calibrationFields">
 
-  <div class="setting">
-    <label for="knownY">ارتفاع Y (mm)</label>
-    <input id="knownY" type="number" inputmode="decimal"
-      min="0.001" step="any" placeholder="اختیاری">
-  </div>
+      <div class="setting">
+        <label for="knownX">عرض X (mm)</label>
+        <input id="knownX" type="number" inputmode="decimal"
+          min="0.001" step="any" placeholder="اختیاری">
+      </div>
 
-  <div class="setting">
-    <label for="knownZ">عمق Z (mm)</label>
-    <input id="knownZ" type="number" inputmode="decimal"
-      min="0.001" step="any" placeholder="اختیاری">
-  </div>
-</div>
+      <div class="setting">
+        <label for="knownY">ارتفاع Y (mm)</label>
+        <input id="knownY" type="number" inputmode="decimal"
+          min="0.001" step="any" placeholder="اختیاری">
+      </div>
+
+      <div class="setting">
+        <label for="knownZ">عمق Z (mm)</label>
+        <input id="knownZ" type="number" inputmode="decimal"
+          min="0.001" step="any" placeholder="اختیاری">
+      </div>
+
+    </div>
 
     <button id="applyCalibration">اعمال کالیبراسیون</button>
     <div id="calibrationStatus">برای شروع، یک بُعد واقعی از مدل را وارد کن.</div>
@@ -707,19 +696,6 @@ function updateDimensionReadout() {
     (modelBaseDimensions.z * modelRoot.scale.z * 1000).toFixed(1);
 }
 
-  // واحدهای صحنه Three.js در AR برحسب متر در نظر گرفته می‌شوند.
-  const scale = modelRoot.scale.x * 1000;
-
-  dimensionX.textContent =
-    (modelBaseDimensions.x * scale).toFixed(1);
-
-  dimensionY.textContent =
-    (modelBaseDimensions.y * scale).toFixed(1);
-
-  dimensionZ.textContent =
-    (modelBaseDimensions.z * scale).toFixed(1);
-}
-
 function measureModel(gltfScene) {
 
   gltfScene.updateMatrixWorld(true);
@@ -777,15 +753,15 @@ function loadModel(url, name) {
       baseQuaternion.identity();
       baseScale.set(1, 1, 1);
 
-     calibratedScale.set(1, 1, 1);
-hasCalibration = false;
+      calibratedScale.set(1, 1, 1);
+      hasCalibration = false;
 
       calibrationStatus.textContent =
         "مدل هنوز کالیبره نشده است؛ یک بُعد واقعی وارد کن.";
 
-    knownX.value = "";
-knownY.value = "";
-knownZ.value = "";
+      knownX.value = "";
+      knownY.value = "";
+      knownZ.value = "";
 
       updateDimensionReadout();
 
@@ -1113,18 +1089,18 @@ function applyControl(button) {
       ? 1 + step
       : 1 - step;
 
-   const nextScaleX = modelRoot.scale.x * factor;
-const nextScaleY = modelRoot.scale.y * factor;
-const nextScaleZ = modelRoot.scale.z * factor;
+    const nextScaleX = modelRoot.scale.x * factor;
+    const nextScaleY = modelRoot.scale.y * factor;
+    const nextScaleZ = modelRoot.scale.z * factor;
 
-if (
-  nextScaleX >= 0.01 && nextScaleX <= 100 &&
-  nextScaleY >= 0.01 && nextScaleY <= 100 &&
-  nextScaleZ >= 0.01 && nextScaleZ <= 100
-) {
-  modelRoot.scale.multiplyScalar(factor);
-  updateDimensionReadout();
-}
+    if (
+      nextScaleX >= 0.01 && nextScaleX <= 100 &&
+      nextScaleY >= 0.01 && nextScaleY <= 100 &&
+      nextScaleZ >= 0.01 && nextScaleZ <= 100
+    ) {
+      modelRoot.scale.multiplyScalar(factor);
+      updateDimensionReadout();
+    }
 
   }
 
@@ -1244,6 +1220,7 @@ applyCalibrationButton.addEventListener("click", function() {
   setStatus("ابعاد مدل با موفقیت کالیبره شد.");
 
 });
+
 // --------------------------------------------------
 // قفل و بازنشانی
 // --------------------------------------------------
